@@ -36,6 +36,7 @@ import com.minenash.customhud.HudElements.supplier.StringSupplierElement;
 import static com.minenash.customhud.data.Flags.wrap;
 import static com.minenash.customhud.registry.CustomHudRegistry.registerElement;
 
+@SuppressWarnings("unchecked")
 public class MprisCustomHud implements ModInitializer {
     public static final String MOD_ID = "mpriscustomhud";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
@@ -57,6 +58,7 @@ public class MprisCustomHud implements ModInitializer {
     private static DBusConnection conn;
     private static String addedHandler = "";
     private static boolean looping = false;
+    private static boolean positionReset = false;
 
     private static void resetValues() {
         track = "";
@@ -124,6 +126,13 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
+    private static void updatePosition(int newPosition) {
+        position = newPosition;
+        progress = String.format("%02d:%02d", position / 60, position % 60);
+        Triplet<String, Integer, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
+        specialmap.put("mpris_progress", progressTriplet);
+    }
+
     private static void initCustomHud() {
         for (String key : stringmap.keySet()) {
             registerElement(key,
@@ -176,6 +185,7 @@ public class MprisCustomHud implements ModInitializer {
 
             // When dbus-java 5.2.0 releases
             // I will be able to properly filter the signals, as it's somewhat broken right now
+            // (if i understand it correctly at least...)
 
             // if (!addedHandler.isEmpty()) {
             //     conn.removeSigHandler(PropertiesChanged.class, addedHandler, new PropChangedHandler());
@@ -245,20 +255,14 @@ public class MprisCustomHud implements ModInitializer {
 
             while (true) {
                 if (playing && position < length) {
-                    position++;
-                    progress = String.format("%02d:%02d", position / 60, position % 60);
-                    Triplet<String, Integer, Boolean> progressTriplet = new Triplet<>(progress, position,
-                            position > 0);
-                    specialmap.put("mpris_progress", progressTriplet);
+                    updatePosition(position + 1);
                     try {
                         Thread.sleep((long) (1000 * rate));
-                    } catch (InterruptedException e) {
-                    }
+                    } catch (InterruptedException e) {}
                 } else {
                     try {
                         Thread.sleep(refresh);
-                    } catch (InterruptedException e) {
-                    }
+                    } catch (InterruptedException e) {}
                 }
             }
         });
@@ -267,10 +271,12 @@ public class MprisCustomHud implements ModInitializer {
 
     private static class SeekedHandler implements DBusSigHandler<Player.Seeked> {
         public void handle(Player.Seeked signal) {
-            position = (int) (signal.getPosition() * 1e-6);
-            progress = String.format("%02d:%02d", position / 60, position % 60);
-            Triplet<String, Integer, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
-            specialmap.put("mpris_progress", progressTriplet);
+            while (true) {
+                if (!positionReset) {
+                    updatePosition((int) (signal.getPosition() * 1e-6));
+                    break;
+                }
+            }
         }
     }
 
@@ -300,12 +306,18 @@ public class MprisCustomHud implements ModInitializer {
                 rate = (double) changed.get("Rate").getValue();
             }
             if (changed.get("Metadata") != null) {
+                positionReset = true;
                 Map<String, Variant<Object>> newMetadata = (Map<String, Variant<Object>>) changed.get("Metadata")
                         .getValue();
                 Map<String, Object> metadata = new HashMap<>();
                 for (Map.Entry<String, Variant<Object>> entry : newMetadata.entrySet()) {
                     metadata.put(entry.getKey(), entry.getValue().getValue());
                 }
+                // probably not the best solution
+                // but needed as the Seeked signal doesn't have to be
+                // emitted when tracks change
+                updatePosition(0);
+                positionReset = false;
                 updateMetadata(metadata);
             }
             updateMaps();
