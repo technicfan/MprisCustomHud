@@ -28,8 +28,8 @@ With `mpriscustomhud player`, you get the chosen one and with `mpriscustomhud re
 
 ### Problems
 
-- I could not find a way to filter Mpris signals for a specific player, so the variables update in weird ways, when multiple Mpris players are active on the system
-    - when this happens, use the refresh command
+- ~~I could not find a way to filter Mpris signals for a specific player, so the variables update in weird ways, when multiple Mpris players are active on the system~~
+    - ~~when this happens, use the refresh command~~
 - the `mpris_progress` variable is not a perfect representation of the actual progress, but should be well enough
 
 ### Libraries used

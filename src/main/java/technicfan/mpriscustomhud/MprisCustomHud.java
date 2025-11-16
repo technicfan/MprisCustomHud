@@ -56,7 +56,8 @@ public class MprisCustomHud implements ModInitializer {
     private static HashMap<String, Triplet<String, Integer, Boolean>> specialmap = new HashMap<>();
 
     private static DBusConnection conn;
-    private static String addedHandler = "";
+    private static String currentBusName;
+    private static boolean addedHandlers = false;
     private static boolean looping = false;
     private static boolean positionReset = false;
 
@@ -156,7 +157,7 @@ public class MprisCustomHud implements ModInitializer {
     private static void connect() {
         looping = true;
         try {
-            while (!Arrays.asList(dbus.ListNames()).contains("org.mpris.MediaPlayer2." + CONFIG.getPlayer())) {
+            while (!Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
                 try {
                     Thread.sleep(refresh);
                 } catch (InterruptedException e) {
@@ -166,9 +167,7 @@ public class MprisCustomHud implements ModInitializer {
                 }
             }
 
-            Properties data = conn.getRemoteObject("org.mpris.MediaPlayer2." + CONFIG.getPlayer(),
-                    "/org/mpris/MediaPlayer2",
-                    Properties.class);
+            Properties data = conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Properties.class);
             Map<String, ?> metadata = data.Get("org.mpris.MediaPlayer2.Player", "Metadata");
 
             if (metadata != null)
@@ -183,19 +182,10 @@ public class MprisCustomHud implements ModInitializer {
 
             updateMaps();
 
-            // When dbus-java 5.2.0 releases
-            // I will be able to properly filter the signals, as it's somewhat broken right now
-            // (if i understand it correctly at least...)
-
-            // if (!addedHandler.isEmpty()) {
-            //     conn.removeSigHandler(PropertiesChanged.class, addedHandler, new PropChangedHandler());
-            //     conn.removeSigHandler(Player.Seeked.class, addedHandler, new SeekedHandler());
-            // }
-
-            if (addedHandler.isEmpty()) {
-                addedHandler = "org.mpris.MediaPlayer2." + CONFIG.getPlayer();
+            if (!addedHandlers) {
                 conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
                 conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
+                addedHandlers = true;
             }
         } catch (DBusException e) {
             LOGGER.error(Arrays.toString(e.getStackTrace()));
@@ -234,6 +224,7 @@ public class MprisCustomHud implements ModInitializer {
         } catch (IOException e) {
             LOGGER.error(Arrays.toString(e.getStackTrace()));
         }
+        currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getPlayer();
     }
 
     @Override
@@ -242,6 +233,7 @@ public class MprisCustomHud implements ModInitializer {
         loadConfig();
         resetValues();
         initCustomHud();
+        currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getPlayer();
 
         Thread main = new Thread(() -> {
             try {
@@ -271,10 +263,13 @@ public class MprisCustomHud implements ModInitializer {
 
     private static class SeekedHandler implements DBusSigHandler<Player.Seeked> {
         public void handle(Player.Seeked signal) {
-            while (true) {
-                if (!positionReset) {
-                    updatePosition((int) (signal.getPosition() * 1e-6));
-                    break;
+            // check if signal came from the currently selected player
+            if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
+                while (true) {
+                    if (!positionReset) {
+                        updatePosition((int) (signal.getPosition() * 1e-6));
+                        break;
+                    }
                 }
             }
         }
@@ -283,44 +278,47 @@ public class MprisCustomHud implements ModInitializer {
     private static class PropChangedHandler extends AbstractPropertiesChangedHandler {
         @Override
         public void handle(PropertiesChanged signal) {
-            Map<String, Variant<?>> changed = signal.getPropertiesChanged();
-            if (changed.get("ActiveState") != null
-                    && changed.get("ActiveState").getValue().toString().equals("inactive")) {
-                resetValues();
-                return;
-            }
-            if (changed.get("PlaybackStatus") != null) {
-                if (changed.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
+            positionReset = true;
+            // check if signal came from the currently selected player
+            if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
+                Map<String, Variant<?>> changed = signal.getPropertiesChanged();
+                if (changed.get("ActiveState") != null
+                        && changed.get("ActiveState").getValue().toString().equals("inactive")) {
                     resetValues();
                     return;
                 }
-                playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing");
-            }
-            if (changed.get("LoopStatus") != null) {
-                loop = (String) changed.get("LoopStatus").getValue();
-            }
-            if (changed.get("Shuffle") != null) {
-                shuffle = (boolean) changed.get("Shuffle").getValue();
-            }
-            if (changed.get("Rate") != null) {
-                rate = (double) changed.get("Rate").getValue();
-            }
-            if (changed.get("Metadata") != null) {
-                positionReset = true;
-                Map<String, Variant<Object>> newMetadata = (Map<String, Variant<Object>>) changed.get("Metadata")
-                        .getValue();
-                Map<String, Object> metadata = new HashMap<>();
-                for (Map.Entry<String, Variant<Object>> entry : newMetadata.entrySet()) {
-                    metadata.put(entry.getKey(), entry.getValue().getValue());
+                if (changed.get("PlaybackStatus") != null) {
+                    if (changed.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
+                        resetValues();
+                        return;
+                    }
+                    playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing");
                 }
-                // probably not the best solution
-                // but needed as the Seeked signal doesn't have to be
-                // emitted when tracks change
-                updatePosition(0);
-                positionReset = false;
-                updateMetadata(metadata);
+                if (changed.get("LoopStatus") != null) {
+                    loop = (String) changed.get("LoopStatus").getValue();
+                }
+                if (changed.get("Shuffle") != null) {
+                    shuffle = (boolean) changed.get("Shuffle").getValue();
+                }
+                if (changed.get("Rate") != null) {
+                    rate = (double) changed.get("Rate").getValue();
+                }
+                if (changed.get("Metadata") != null) {
+                    Map<String, Variant<Object>> newMetadata = (Map<String, Variant<Object>>) changed.get("Metadata")
+                            .getValue();
+                    Map<String, Object> metadata = new HashMap<>();
+                    for (Map.Entry<String, Variant<Object>> entry : newMetadata.entrySet()) {
+                        metadata.put(entry.getKey(), entry.getValue().getValue());
+                    }
+                    // probably not the best solution
+                    // but needed as the Seeked signal doesn't have to be
+                    // emitted when tracks change
+                    updatePosition(0);
+                    updateMetadata(metadata);
+                }
+                updateMaps();
             }
-            updateMaps();
+            positionReset = false;
         }
     }
 }
