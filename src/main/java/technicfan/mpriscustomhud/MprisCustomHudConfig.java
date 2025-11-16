@@ -4,7 +4,7 @@ public class MprisCustomHudConfig {
     private String player;
 
     public MprisCustomHudConfig() {
-        player = "spotif";
+        player = "spotify";
     }
 
     public String getPlayer() {
