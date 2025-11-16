@@ -3,15 +3,14 @@
     "id": "mpriscustomhud",
     "version": "${version}",
     "name": "MprisCustomHud",
-    "description": "This is an example description! Tell everyone what your mod is about!",
-    "authors": ["Me!"],
+    "description": "(Linux only) Mpris song info extension for Customhud",
+    "authors": ["technicfan"],
     "contact": {
-        "homepage": "https://fabricmc.net/",
-        "sources": "https://github.com/FabricMC/fabric-example-mod"
+        "sources": "https://github.com/technicfan/MprisCustomHud"
     },
-    "license": "CC0-1.0",
+    "license": "MIT",
     "icon": "assets/mpriscustomhud/icon.png",
-    "environment": "*",
+    "environment": "client",
     "entrypoints": {
         "main": ["technicfan.mpriscustomhud.MprisCustomHud"],
         "client": ["technicfan.mpriscustomhud.MprisCustomHudClient"]
