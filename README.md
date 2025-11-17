@@ -4,6 +4,8 @@
 
 Just what you might expect from the name: Variables for CustomHud to show currently playing music using the Mpris DBus Spec.
 <br>
+Available for all versions CustomHud v4 is available for!
+<br>
 It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank you for your work [Lightningtow](https://github.com/Lightningtow) ig :)
 
 ### Variables
@@ -30,7 +32,7 @@ With `mpriscustomhud player`, you get the chosen one and with `mpriscustomhud re
 
 - ~~I could not find a way to filter Mpris signals for a specific player, so the variables update in weird ways, when multiple Mpris players are active on the system~~
     - ~~when this happens, use the refresh command~~
-- the `mpris_progress` variable is not a perfect representation of the actual progress, but should be well enough
+- ~~the `mpris_progress` variable is not a perfect representation of the actual progress, but should be good enough~~<br>(it's still not perfect, but much better)
 
 ### Libraries used
 

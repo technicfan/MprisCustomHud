@@ -11,11 +11,8 @@ import java.util.concurrent.CompletableFuture;
 public class PlayerSuggestionProvider implements SuggestionProvider<FabricClientCommandSource> {
     @Override
     public CompletableFuture<Suggestions> getSuggestions(CommandContext<FabricClientCommandSource> context, SuggestionsBuilder builder) {
-        if (MprisCustomHud.dbus != null) {
-            for (String name : MprisCustomHud.dbus.ListNames()) {
-                if (name.startsWith("org.mpris.MediaPlayer2."))
-                    builder.suggest(name.replace("org.mpris.MediaPlayer2.", ""));
-            }
+        for (String name : MprisCustomHud.getActivePlayers()) {
+            builder.suggest(name);
         }
 
         return builder.buildFuture();
