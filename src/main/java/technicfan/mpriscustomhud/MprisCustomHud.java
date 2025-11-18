@@ -51,18 +51,18 @@ public class MprisCustomHud implements ModInitializer {
     private static int position, length;
     private static long positionMs;
     private static double rate;
-    private static long refreshTime = 1000L;
     private final static long microToMs = 1000L;
 
     private static HashMap<String, String> stringmap = new HashMap<>();
     private static HashMap<String, Boolean> boolmap = new HashMap<>();
-    private static HashMap<String, Triplet<String, Integer, Boolean>> specialmap = new HashMap<>();
+    private static HashMap<String, Triplet<String, Number, Boolean>> specialmap = new HashMap<>();
 
     private static DBus dbus;
     private static DBusConnection conn;
     private static Thread positionTimer;
     private static String currentBusName;
     private static boolean positionReset = false;
+    private static Object positionResetLock = new Object();
 
     private static void resetValues() {
         track = "";
@@ -92,10 +92,12 @@ public class MprisCustomHud implements ModInitializer {
         boolmap.put("mpris_shuffle", shuffle);
         boolmap.put("mpris_playing", playing);
 
-        Triplet<String, Integer, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0L);
-        Triplet<String, Integer, Boolean> durationTriplet = new Triplet<>(duration, length, length > 0);
+        Triplet<String, Number, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
+        Triplet<String, Number, Boolean> durationTriplet = new Triplet<>(duration, length, length > 0);
+        Triplet<String, Number, Boolean> rateTriplet = new Triplet<>(Double.toString(rate), rate, rate > 0.0);
         specialmap.put("mpris_progress", progressTriplet);
         specialmap.put("mpris_duration", durationTriplet);
+        specialmap.put("mpris_rate", rateTriplet);
     }
 
     private static void updateMetadata(Map<String, ?> metadata) {
@@ -106,7 +108,8 @@ public class MprisCustomHud implements ModInitializer {
         albumObj = metadata.get("xesam:album");
         if (lengthObj != null) {
             length = (int) (((UInt64) lengthObj).longValue() / microToMs / microToMs);
-            duration = String.format("%02d:%02d", length / 60, length % 60);
+            duration = String.format("%s%02d:%02d", length / 3600 > 0 ? String.format("%02d:", length / 3600) : "",
+                    length / 60 % 60, length % 60);
         } else {
             length = 0;
             duration = "00:00";
@@ -138,8 +141,9 @@ public class MprisCustomHud implements ModInitializer {
             positionTimer.interrupt();
         }
         position = Math.round(positionMs / microToMs);
-        progress = String.format("%02d:%02d", position / 60, position % 60);
-        Triplet<String, Integer, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
+        progress = String.format("%s%02d:%02d", position / 3600 > 0 ? String.format("%02d:", position / 3600) : "",
+                position / 60 % 60, position % 60);
+        Triplet<String, Number, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
         specialmap.put("mpris_progress", progressTriplet);
     }
 
@@ -151,12 +155,12 @@ public class MprisCustomHud implements ModInitializer {
 
                 if (metadata != null)
                     updateMetadata(metadata);
-                long positionLong = data.Get("org.mpris.MediaPlayer2.Player", "Position");
-                updatePosition(positionLong / microToMs, true);
                 loop = data.Get("org.mpris.MediaPlayer2.Player", "LoopStatus");
                 shuffle = data.Get("org.mpris.MediaPlayer2.Player", "Shuffle");
                 playing = data.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus").toString().equals("Playing");
                 rate = data.Get("org.mpris.MediaPlayer2.Player", "Rate");
+                long positionLong = data.Get("org.mpris.MediaPlayer2.Player", "Position");
+                updatePosition(positionLong / microToMs, true);
 
                 updateMaps();
             }
@@ -227,17 +231,17 @@ public class MprisCustomHud implements ModInitializer {
             dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
             positionTimer = new Thread(() -> {
                 while (true) {
-                    if (playing && position < length) {
-                        updatePosition(positionMs + 100L, false);
-                        try {
+                    try {
+                        if (playing && position < length) {
+                            updatePosition(positionMs + 100L, false);
                             Thread.sleep((long) (100 * rate));
-                        } catch (InterruptedException e) {
+                        } else {
+                            // sleep forever until the thread is interrupted
+                            // (ik this is not supposed to be done like this)
+                            Thread.sleep(Long.MAX_VALUE);
                         }
-                    } else {
-                        try {
-                            Thread.sleep(refreshTime);
-                        } catch (InterruptedException e) {
-                        }
+                    } catch (InterruptedException e) {
+                        continue;
                     }
                 }
             });
@@ -245,7 +249,8 @@ public class MprisCustomHud implements ModInitializer {
             conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
             // listen for progress jumps for the current track
             conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
-            // listen for name owner changes to reset the values in case the player terminates
+            // listen for name owner changes to reset the values in case the player
+            // terminates
             conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
             positionTimer.start();
             refreshValues();
@@ -277,13 +282,16 @@ public class MprisCustomHud implements ModInitializer {
 
     private static class SeekedHandler implements DBusSigHandler<Player.Seeked> {
         public void handle(Player.Seeked signal) {
-            // check if signal came from the currently selected player
-            if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
-                while (true) {
-                    if (!positionReset) {
-                        updatePosition(signal.getPosition() / microToMs, true);
-                        break;
+            synchronized (positionResetLock) {
+                // check if signal came from the currently selected player
+                if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
+                    if (positionReset) {
+                        try {
+                            positionResetLock.wait();
+                        } catch (InterruptedException e) {
+                        }
                     }
+                    updatePosition(signal.getPosition() / microToMs, true);
                 }
             }
         }
@@ -301,44 +309,48 @@ public class MprisCustomHud implements ModInitializer {
     private static class PropChangedHandler extends AbstractPropertiesChangedHandler {
         @Override
         public void handle(PropertiesChanged signal) {
-            positionReset = true;
-            // check if signal came from the currently selected player
-            if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
-                Map<String, Variant<?>> changed = signal.getPropertiesChanged();
-                if (changed.get("PlaybackStatus") != null) {
-                    if (changed.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                        resetValues();
-                        return;
+            synchronized (positionResetLock) {
+                positionReset = true;
+                // check if signal came from the currently selected player
+                if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
+                    Map<String, Variant<?>> changed = signal.getPropertiesChanged();
+                    if (changed.get("PlaybackStatus") != null) {
+                        if (changed.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
+                            resetValues();
+                            return;
+                        }
+                        playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing");
+                        if (playing)
+                            positionTimer.interrupt();
                     }
-                    playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing");
-                    if (playing)
-                        positionTimer.interrupt();
-                }
-                if (changed.get("LoopStatus") != null) {
-                    loop = (String) changed.get("LoopStatus").getValue();
-                }
-                if (changed.get("Shuffle") != null) {
-                    shuffle = (boolean) changed.get("Shuffle").getValue();
-                }
-                if (changed.get("Rate") != null) {
-                    rate = (double) changed.get("Rate").getValue();
-                }
-                if (changed.get("Metadata") != null) {
-                    Map<String, Variant<Object>> newMetadata = (Map<String, Variant<Object>>) changed.get("Metadata")
-                            .getValue();
-                    Map<String, Object> metadata = new HashMap<>();
-                    for (Map.Entry<String, Variant<Object>> entry : newMetadata.entrySet()) {
-                        metadata.put(entry.getKey(), entry.getValue().getValue());
+                    if (changed.get("LoopStatus") != null) {
+                        loop = (String) changed.get("LoopStatus").getValue();
                     }
-                    // probably not the best solution
-                    // but needed as the Seeked signal doesn't have to be
-                    // emitted when tracks change
-                    updatePosition(0, true);
-                    updateMetadata(metadata);
+                    if (changed.get("Shuffle") != null) {
+                        shuffle = (boolean) changed.get("Shuffle").getValue();
+                    }
+                    if (changed.get("Rate") != null) {
+                        rate = (double) changed.get("Rate").getValue();
+                    }
+                    if (changed.get("Metadata") != null) {
+                        Map<String, Variant<Object>> newMetadata = (Map<String, Variant<Object>>) changed
+                                .get("Metadata")
+                                .getValue();
+                        Map<String, Object> metadata = new HashMap<>();
+                        for (Map.Entry<String, Variant<Object>> entry : newMetadata.entrySet()) {
+                            metadata.put(entry.getKey(), entry.getValue().getValue());
+                        }
+                        // probably not the best solution
+                        // but needed as the Seeked signal doesn't have to be
+                        // emitted when tracks change
+                        updatePosition(0, true);
+                        updateMetadata(metadata);
+                    }
+                    updateMaps();
                 }
-                updateMaps();
+                positionReset = false;
+                positionResetLock.notify();
             }
-            positionReset = false;
         }
     }
 }

@@ -3,7 +3,7 @@
     "id": "mpriscustomhud",
     "version": "${version}",
     "name": "MprisCustomHud",
-    "description": "(Linux only) Mpris song info extension for Customhud",
+    "description": "(Linux only) Mpris song info addon for Customhud",
     "authors": ["technicfan"],
     "contact": {
         "sources": "https://github.com/technicfan/MprisCustomHud"

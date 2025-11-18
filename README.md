@@ -10,17 +10,18 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 
 ### Variables
 
-| Name             |  Type   | Description                                                            |
-| :--------------- | :-----: | :--------------------------------------------------------------------- |
-| `mpris_track`    | String  | currently playing track name                                           |
-| `mpris_album`    | String  | name of the album the track is from                                    |
-| `mpris_loop`     | String  | loop status - "None", "Track" or "Playlist"                            |
-| `mpris_artist`   | String  | name of the first artist coming from mpris                             |
-| `mpris_artists`  | String  | comma seperated list of artists                                        |
-| `mpris_shuffle`  | Boolean | wether shuffle is on                                                   |
-| `mpris_playing`  | Boolean | wether the song is playing or paused/stopped                           |
-| `mpris_progress` | Special | progress in MM:SS format, number of seconds, progress > 0              |
-| `mpris_duration` | Special | duration of the track in MM:SS format, number of seconds, duration > 0 |
+| Name             |  Type   | Description                                                                     |
+| :--------------- | :-----: | :------------------------------------------------------------------------------ |
+| `mpris_track`    | String  | currently playing track name                                                    |
+| `mpris_album`    | String  | name of the album the track is from                                             |
+| `mpris_loop`     | String  | loop status - "None", "Track" or "Playlist"                                     |
+| `mpris_artist`   | String  | name of the first artist coming from mpris                                      |
+| `mpris_artists`  | String  | comma seperated list of artists                                                 |
+| `mpris_shuffle`  | Boolean | wether shuffle is on                                                            |
+| `mpris_playing`  | Boolean | wether the song is playing or paused/stopped                                    |
+| `mpris_progress` | Special | progress in (HH:)?MM:SS format, number of seconds, progress > 0                 |
+| `mpris_duration` | Special | duration of the track in (HH:)?MM:SS format, number of seconds, duration > 0    |
+| `mpris_rate`     | Special | the rate/speed the music is playing at, rate as floating point number, rate > 0 |
 
 ### Configuration
 
