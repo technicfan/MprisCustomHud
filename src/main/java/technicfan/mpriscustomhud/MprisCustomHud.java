@@ -4,8 +4,6 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import oshi.util.tuples.Triplet;
 
-import org.freedesktop.dbus.types.Variant;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -26,6 +24,7 @@ import org.freedesktop.dbus.interfaces.Properties;
 import org.freedesktop.dbus.interfaces.DBus.NameOwnerChanged;
 import org.freedesktop.dbus.interfaces.Properties.PropertiesChanged;
 import org.freedesktop.dbus.types.UInt64;
+import org.freedesktop.dbus.types.Variant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,10 +47,9 @@ public class MprisCustomHud implements ModInitializer {
 
     private static String track, album, progress, duration, loop, artist, artists;
     private static boolean shuffle, playing;
-    private static int position, length;
-    private static long positionMs;
+    private static long positionMs, lengthMs;
     private static double rate;
-    private final static long microToMs = 1000L;
+    private final static long microToMs = 1000L, positionUpdateTime = 100L;
 
     private static HashMap<String, String> stringmap = new HashMap<>();
     private static HashMap<String, Boolean> boolmap = new HashMap<>();
@@ -62,7 +60,7 @@ public class MprisCustomHud implements ModInitializer {
     private static Thread positionTimer;
     private static String currentBusName;
     private static boolean positionReset = false;
-    private static Object positionResetLock = new Object();
+    private static Object positionResetLock = new Object(), positionUpdateLock = new Object();
 
     private static void resetValues() {
         track = "";
@@ -74,9 +72,8 @@ public class MprisCustomHud implements ModInitializer {
         artists = "";
         shuffle = false;
         playing = false;
-        position = 0;
         positionMs = 0;
-        length = 0;
+        lengthMs = 0;
         rate = 1.0;
 
         updateMaps();
@@ -92,9 +89,11 @@ public class MprisCustomHud implements ModInitializer {
         boolmap.put("mpris_shuffle", shuffle);
         boolmap.put("mpris_playing", playing);
 
-        Triplet<String, Number, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
-        Triplet<String, Number, Boolean> durationTriplet = new Triplet<>(duration, length, length > 0);
-        Triplet<String, Number, Boolean> rateTriplet = new Triplet<>(Double.toString(rate), rate, rate > 0.0);
+        Triplet<String, Number, Boolean> progressTriplet = new Triplet<>(progress, positionMs / microToMs,
+                positionMs / microToMs > 0);
+        Triplet<String, Number, Boolean> durationTriplet = new Triplet<>(duration, lengthMs / microToMs,
+                lengthMs / microToMs > 0);
+        Triplet<String, Number, Boolean> rateTriplet = new Triplet<>(String.format("%.2f", rate), rate, rate > 0.0);
         specialmap.put("mpris_progress", progressTriplet);
         specialmap.put("mpris_duration", durationTriplet);
         specialmap.put("mpris_rate", rateTriplet);
@@ -107,12 +106,17 @@ public class MprisCustomHud implements ModInitializer {
         trackObj = metadata.get("xesam:title");
         albumObj = metadata.get("xesam:album");
         if (lengthObj != null) {
-            length = (int) (((UInt64) lengthObj).longValue() / microToMs / microToMs);
+            if (lengthObj instanceof UInt64) {
+                lengthMs = ((UInt64) lengthObj).longValue() / microToMs;
+            } else {
+                lengthMs = (long) lengthObj / microToMs;
+            }
+            long length = lengthMs / microToMs;
             duration = String.format("%s%02d:%02d", length / 3600 > 0 ? String.format("%02d:", length / 3600) : "",
                     length / 60 % 60, length % 60);
         } else {
-            length = 0;
-            duration = "00:00";
+            lengthMs = 0;
+            duration = "";
         }
         if (artistsObj != null) {
             List<String> list = (List<String>) artistsObj;
@@ -137,10 +141,9 @@ public class MprisCustomHud implements ModInitializer {
     private static void updatePosition(long newPosition, boolean restart) {
         positionMs = newPosition;
         if (restart) {
-            positionMs -= 100;
             positionTimer.interrupt();
         }
-        position = Math.round(positionMs / microToMs);
+        long position = positionMs / microToMs;
         progress = String.format("%s%02d:%02d", position / 3600 > 0 ? String.format("%02d:", position / 3600) : "",
                 position / 60 % 60, position % 60);
         Triplet<String, Number, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
@@ -232,19 +235,24 @@ public class MprisCustomHud implements ModInitializer {
             positionTimer = new Thread(() -> {
                 while (true) {
                     try {
-                        if (playing && position < length) {
-                            updatePosition(positionMs + 100L, false);
-                            Thread.sleep((long) (100 * rate));
+                        long loopStart = System.currentTimeMillis();
+                        Thread.sleep(positionUpdateTime);
+                        if (playing) {
+                            if (positionMs < lengthMs) {
+                                updatePosition(positionMs + (long) ((System.currentTimeMillis() - loopStart) * rate),
+                                        false);
+                            }
                         } else {
-                            // sleep forever until the thread is interrupted
-                            // (ik this is not supposed to be done like this)
-                            Thread.sleep(Long.MAX_VALUE);
+                            synchronized (positionUpdateLock) {
+                                positionUpdateLock.wait();
+                            }
                         }
                     } catch (InterruptedException e) {
                         continue;
                     }
                 }
             });
+            positionTimer.setName("Track progress timer");
             // listen for music Properties (like metadata, shuffle status, ...)
             conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
             // listen for progress jumps for the current track
@@ -314,15 +322,6 @@ public class MprisCustomHud implements ModInitializer {
                 // check if signal came from the currently selected player
                 if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
                     Map<String, Variant<?>> changed = signal.getPropertiesChanged();
-                    if (changed.get("PlaybackStatus") != null) {
-                        if (changed.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                            resetValues();
-                            return;
-                        }
-                        playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing");
-                        if (playing)
-                            positionTimer.interrupt();
-                    }
                     if (changed.get("LoopStatus") != null) {
                         loop = (String) changed.get("LoopStatus").getValue();
                     }
@@ -331,6 +330,18 @@ public class MprisCustomHud implements ModInitializer {
                     }
                     if (changed.get("Rate") != null) {
                         rate = (double) changed.get("Rate").getValue();
+                    }
+                    if (changed.get("PlaybackStatus") != null) {
+                        if (changed.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
+                            resetValues();
+                            positionReset = false;
+                            positionResetLock.notify();
+                            return;
+                        } 
+                        playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing")
+                                && rate != 0.0;
+                        if (playing)
+                            positionTimer.interrupt();
                     }
                     if (changed.get("Metadata") != null) {
                         Map<String, Variant<Object>> newMetadata = (Map<String, Variant<Object>>) changed
