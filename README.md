@@ -13,6 +13,7 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 | Name             |  Type   | Description                                                                     |
 | :--------------- | :-----: | :------------------------------------------------------------------------------ |
 | `mpris_track`    | String  | currently playing track name                                                    |
+| `mpris_track_id` | String  | the unique mpris track id (mostly for debugging)                                |
 | `mpris_album`    | String  | name of the album the track is from                                             |
 | `mpris_loop`     | String  | loop status - "None", "Track" or "Playlist"                                     |
 | `mpris_artist`   | String  | name of the first artist coming from mpris                                      |

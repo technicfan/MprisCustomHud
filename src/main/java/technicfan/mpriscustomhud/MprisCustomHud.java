@@ -44,11 +44,11 @@ public class MprisCustomHud implements ModInitializer {
     private static File CONFIG_FILE;
     private static MprisCustomHudConfig CONFIG = new MprisCustomHudConfig();
 
+    private final static long microToMs = 1000L, positionUpdateTime = 100L;
     private static String track, trackId, album, progress, duration, loop, artist, artists;
     private static boolean shuffle, playing;
     private static long positionMs, lengthMs;
     private static double rate;
-    private final static long microToMs = 1000L, positionUpdateTime = 100L;
 
     private static HashMap<String, String> stringmap = new HashMap<>();
     private static HashMap<String, Boolean> boolmap = new HashMap<>();
@@ -81,6 +81,7 @@ public class MprisCustomHud implements ModInitializer {
 
     private static void updateMaps() {
         stringmap.put("mpris_track", track);
+        stringmap.put("mpris_track_id", trackId);
         stringmap.put("mpris_album", album);
         stringmap.put("mpris_loop", loop);
         stringmap.put("mpris_artist", artist);
@@ -89,14 +90,9 @@ public class MprisCustomHud implements ModInitializer {
         boolmap.put("mpris_shuffle", shuffle);
         boolmap.put("mpris_playing", playing);
 
-        Triplet<String, Number, Boolean> progressTriplet = new Triplet<>(progress, positionMs / microToMs,
-                positionMs / microToMs > 0);
-        Triplet<String, Number, Boolean> durationTriplet = new Triplet<>(duration, lengthMs / microToMs,
-                lengthMs / microToMs > 0);
-        Triplet<String, Number, Boolean> rateTriplet = new Triplet<>(String.format("%.2f", rate), rate, rate > 0.0);
-        specialmap.put("mpris_progress", progressTriplet);
-        specialmap.put("mpris_duration", durationTriplet);
-        specialmap.put("mpris_rate", rateTriplet);
+        specialmap.put("mpris_progress", new Triplet<>(progress, positionMs / microToMs, positionMs / microToMs > 0));
+        specialmap.put("mpris_duration", new Triplet<>(duration, lengthMs / microToMs, lengthMs / microToMs > 0));
+        specialmap.put("mpris_rate", new Triplet<>(String.format("%.2f", rate), rate, rate > 0.0));
     }
 
     private static void updateMetadata(Map<String, ?> metadata) {
@@ -148,8 +144,7 @@ public class MprisCustomHud implements ModInitializer {
             album = "";
         }
         if (!trackId.equals(tempId)) {
-            // probably not the best solution
-            // but needed as the Seeked signal doesn't have to be
+            // needed as the Seeked signal doesn't have to be
             // emitted when tracks change
             updatePosition(0, true);
         }
@@ -163,29 +158,26 @@ public class MprisCustomHud implements ModInitializer {
         long position = positionMs / microToMs;
         progress = String.format("%s%02d:%02d", position / 3600 > 0 ? String.format("%02d:", position / 3600) : "",
                 position / 60 % 60, position % 60);
-        Triplet<String, Number, Boolean> progressTriplet = new Triplet<>(progress, position, position > 0);
-        specialmap.put("mpris_progress", progressTriplet);
+        specialmap.put("mpris_progress", new Triplet<>(progress, position, position > 0));
     }
 
-    private static void refreshValues() {
-        try {
-            if (Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
-                Properties data = conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Properties.class);
-                Map<String, ?> metadata = data.Get("org.mpris.MediaPlayer2.Player", "Metadata");
+    private static void initCustomHud() {
+        for (String key : stringmap.keySet()) {
+            registerElement(key,
+                    (f, c) -> wrap(
+                            new StringSupplierElement(() -> stringmap.get(key).isEmpty() ? null : stringmap.get(key)),
+                            f));
+        }
 
-                if (metadata != null)
-                    updateMetadata(metadata);
-                loop = data.Get("org.mpris.MediaPlayer2.Player", "LoopStatus");
-                shuffle = data.Get("org.mpris.MediaPlayer2.Player", "Shuffle");
-                playing = data.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus").toString().equals("Playing");
-                rate = data.Get("org.mpris.MediaPlayer2.Player", "Rate");
-                long positionLong = data.Get("org.mpris.MediaPlayer2.Player", "Position");
-                updatePosition(positionLong / microToMs, true);
+        for (String key : boolmap.keySet()) {
+            registerElement(key, (f, c) -> wrap(new BooleanSupplierElement(() -> boolmap.get(key)), f));
+        }
 
-                updateMaps();
-            }
-        } catch (DBusException e) {
-            LOGGER.error(Arrays.toString(e.getStackTrace()));
+        for (String key : specialmap.keySet()) {
+            registerElement(key, (f, c) -> new SpecialSupplierElement(SpecialSupplierElement.of(
+                    () -> specialmap.get(key).getA(),
+                    () -> specialmap.get(key).getB(),
+                    () -> specialmap.get(key).getC())));
         }
     }
 
@@ -285,23 +277,25 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    private static void initCustomHud() {
-        for (String key : stringmap.keySet()) {
-            registerElement(key,
-                    (f, c) -> wrap(
-                            new StringSupplierElement(() -> stringmap.get(key).isEmpty() ? null : stringmap.get(key)),
-                            f));
-        }
+    private static void refreshValues() {
+        try {
+            if (Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
+                Properties data = conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Properties.class);
+                Map<String, ?> metadata = data.Get("org.mpris.MediaPlayer2.Player", "Metadata");
 
-        for (String key : boolmap.keySet()) {
-            registerElement(key, (f, c) -> wrap(new BooleanSupplierElement(() -> boolmap.get(key)), f));
-        }
+                if (metadata != null)
+                    updateMetadata(metadata);
+                loop = data.Get("org.mpris.MediaPlayer2.Player", "LoopStatus");
+                shuffle = data.Get("org.mpris.MediaPlayer2.Player", "Shuffle");
+                playing = data.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus").toString().equals("Playing");
+                rate = data.Get("org.mpris.MediaPlayer2.Player", "Rate");
+                long positionLong = data.Get("org.mpris.MediaPlayer2.Player", "Position");
+                updatePosition(positionLong / microToMs, true);
 
-        for (String key : specialmap.keySet()) {
-            registerElement(key, (f, c) -> new SpecialSupplierElement(SpecialSupplierElement.of(
-                    () -> specialmap.get(key).getA(),
-                    () -> specialmap.get(key).getB(),
-                    () -> specialmap.get(key).getC())));
+                updateMaps();
+            }
+        } catch (DBusException e) {
+            LOGGER.error(Arrays.toString(e.getStackTrace()));
         }
     }
 
@@ -354,7 +348,7 @@ public class MprisCustomHud implements ModInitializer {
                             positionReset = false;
                             positionResetLock.notify();
                             return;
-                        } 
+                        }
                         playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing")
                                 && rate != 0.0;
                         if (playing)
