@@ -37,7 +37,6 @@ import com.minenash.customhud.HudElements.supplier.StringSupplierElement;
 import static com.minenash.customhud.data.Flags.wrap;
 import static com.minenash.customhud.registry.CustomHudRegistry.registerElement;
 
-@SuppressWarnings("unchecked")
 public class MprisCustomHud implements ModInitializer {
     public static final String MOD_ID = "mpriscustomhud";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
@@ -45,7 +44,7 @@ public class MprisCustomHud implements ModInitializer {
     private static File CONFIG_FILE;
     private static MprisCustomHudConfig CONFIG = new MprisCustomHudConfig();
 
-    private static String track, album, progress, duration, loop, artist, artists;
+    private static String track, trackId, album, progress, duration, loop, artist, artists;
     private static boolean shuffle, playing;
     private static long positionMs, lengthMs;
     private static double rate;
@@ -64,6 +63,7 @@ public class MprisCustomHud implements ModInitializer {
 
     private static void resetValues() {
         track = "";
+        trackId = "";
         album = "";
         progress = "";
         duration = "";
@@ -100,8 +100,10 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     private static void updateMetadata(Map<String, ?> metadata) {
-        Object lengthObj, trackObj, albumObj, artistsObj;
+        String tempId = trackId;
+        Object lengthObj, trackObj, trackIdObj, albumObj, artistsObj;
         lengthObj = metadata.get("mpris:length");
+        trackIdObj = metadata.get("mpris:trackid");
         artistsObj = metadata.get("xesam:artist");
         trackObj = metadata.get("xesam:title");
         albumObj = metadata.get("xesam:album");
@@ -118,23 +120,38 @@ public class MprisCustomHud implements ModInitializer {
             lengthMs = 0;
             duration = "";
         }
-        if (artistsObj != null) {
-            List<String> list = (List<String>) artistsObj;
+        if (artistsObj != null && artistsObj instanceof List) {
+            List<?> tempList = (List<?>) artistsObj;
+            List<String> list = new ArrayList<>();
+            for (Object name : tempList) {
+                list.add((String) name);
+            }
             artist = list.get(0);
             artists = String.join(", ", list);
         } else {
             artist = "";
             artists = "";
         }
-        if (trackObj != null) {
+        if (trackObj != null && trackObj instanceof String) {
             track = (String) trackObj;
         } else {
             track = "";
         }
-        if (albumObj != null) {
+        if (trackIdObj != null && trackIdObj instanceof String) {
+            trackId = (String) trackIdObj;
+        } else {
+            trackId = "";
+        }
+        if (albumObj != null && albumObj instanceof String) {
             album = (String) albumObj;
         } else {
             album = "";
+        }
+        if (!trackId.equals(tempId)) {
+            // probably not the best solution
+            // but needed as the Seeked signal doesn't have to be
+            // emitted when tracks change
+            updatePosition(0, true);
         }
     }
 
@@ -344,17 +361,13 @@ public class MprisCustomHud implements ModInitializer {
                             positionTimer.interrupt();
                     }
                     if (changed.get("Metadata") != null) {
-                        Map<String, Variant<Object>> newMetadata = (Map<String, Variant<Object>>) changed
+                        Map<?, ?> newMetadata = (Map<?, ?>) changed
                                 .get("Metadata")
                                 .getValue();
                         Map<String, Object> metadata = new HashMap<>();
-                        for (Map.Entry<String, Variant<Object>> entry : newMetadata.entrySet()) {
-                            metadata.put(entry.getKey(), entry.getValue().getValue());
+                        for (Map.Entry<?, ?> entry : newMetadata.entrySet()) {
+                            metadata.put((String) entry.getKey(), ((Variant<?>) entry.getValue()).getValue());
                         }
-                        // probably not the best solution
-                        // but needed as the Seeked signal doesn't have to be
-                        // emitted when tracks change
-                        updatePosition(0, true);
                         updateMetadata(metadata);
                     }
                     updateMaps();
