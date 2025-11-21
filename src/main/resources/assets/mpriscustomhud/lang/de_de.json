@@ -1,0 +1,11 @@
+{
+    "key.category.mpriscustomhud.mpriscustomhud": "MPRIS Custom Hud",
+    "mpriscustomhud.key.playpause": "Start/Pause",
+    "mpriscustomhud.key.play": "Start",
+    "mpriscustomhud.key.pause": "Pause",
+    "mpriscustomhud.key.next": "Nächstes Lied",
+    "mpriscustomhud.key.prev": "Vorheriges Lied",
+    "mpriscustomhud.key.refresh": "Liedinfo neuladen",
+    "mpriscustomhud.command.new_player": "Der neue Player ist: %1$s",
+    "mpriscustomhud.command.current_player": "Der aktuelle Player ist: %1$s"
+}

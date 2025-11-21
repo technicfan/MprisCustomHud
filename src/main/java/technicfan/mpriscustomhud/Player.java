@@ -7,6 +7,16 @@ import org.freedesktop.dbus.interfaces.DBusInterface;
 
 @DBusInterfaceName("org.mpris.MediaPlayer2.Player")
 public interface Player extends DBusInterface {
+    void PlayPause();
+
+    void Play();
+
+    void Pause();
+
+    void Next();
+
+    void Previous();
+
     public class Seeked extends DBusSignal {
         private final long position;
 

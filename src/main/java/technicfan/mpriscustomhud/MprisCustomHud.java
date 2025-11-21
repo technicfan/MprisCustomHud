@@ -213,7 +213,7 @@ public class MprisCustomHud implements ModInitializer {
             try {
                 try (FileReader reader = new FileReader(CONFIG_FILE)) {
                     CONFIG = new Gson().fromJson(reader, MprisCustomHudConfig.class);
-                    LOGGER.info("Mpris player is now " + CONFIG.getPlayer());
+                    LOGGER.info("MPRIS player is now " + CONFIG.getPlayer());
                 }
             } catch (IOException e) {
                 LOGGER.error(Arrays.toString(e.getStackTrace()));
@@ -277,9 +277,50 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    private static void refreshValues() {
+    private static Player getPlayerObject() {
         try {
-            if (Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
+            if (dbus != null && Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
+                return conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Player.class);
+            }
+        } catch (DBusException e) {
+            LOGGER.error(Arrays.toString(e.getStackTrace()));
+        }
+        return null;
+    }
+
+    protected static void playPause() {
+        Player player = getPlayerObject();
+        if (player != null)
+            player.PlayPause();
+    }
+
+    protected static void play() {
+        Player player = getPlayerObject();
+        if (player != null)
+            player.PlayPause();
+    }
+
+    protected static void pause() {
+        Player player = getPlayerObject();
+        if (player != null)
+            player.PlayPause();
+    }
+
+    protected static void next() {
+        Player player = getPlayerObject();
+        if (player != null)
+            player.Next();
+    }
+
+    protected static void previous() {
+        Player player = getPlayerObject();
+        if (player != null)
+            player.Previous();
+    }
+
+    protected static void refreshValues() {
+        try {
+            if (dbus != null && Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
                 Properties data = conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Properties.class);
                 Map<String, ?> metadata = data.Get("org.mpris.MediaPlayer2.Player", "Metadata");
 

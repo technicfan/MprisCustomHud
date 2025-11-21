@@ -24,6 +24,10 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 | `mpris_duration` | Special | duration of the track in (HH:)?MM:SS format, number of seconds, duration > 0    |
 | `mpris_rate`     | Special | the rate/speed the music is playing at, rate as floating point number, rate > 0 |
 
+### Controls
+
+There are keybindings for play/pause, next, previous and refresh that all have correcsponding commands.
+
 ### Configuration
 
 You can choose a mpris player (default is "spotify") you want to see with the `mpriscustomhud player <player>` command which will also suggest currently active ones.
