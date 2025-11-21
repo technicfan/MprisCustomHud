@@ -46,7 +46,7 @@ public class MprisCustomHud implements ModInitializer {
 
     private final static long microToMs = 1000L, positionUpdateTime = 100L;
     private static String track, trackId, album, progress, duration, loop, artist, artists;
-    private static boolean shuffle, playing;
+    private static boolean shuffle, playing, tempPlaying;
     private static long positionMs, lengthMs;
     private static double rate;
 
@@ -72,6 +72,7 @@ public class MprisCustomHud implements ModInitializer {
         artists = "";
         shuffle = false;
         playing = false;
+        tempPlaying = false;
         positionMs = 0;
         lengthMs = 0;
         rate = 1.0;
@@ -93,6 +94,49 @@ public class MprisCustomHud implements ModInitializer {
         specialmap.put("mpris_progress", new Triplet<>(progress, positionMs / microToMs, positionMs / microToMs > 0));
         specialmap.put("mpris_duration", new Triplet<>(duration, lengthMs / microToMs, lengthMs / microToMs > 0));
         specialmap.put("mpris_rate", new Triplet<>(String.format("%.2f", rate), rate, rate > 0.0));
+    }
+
+    private static void updateData(Map<String, Variant<?>> data, boolean init) {
+        if (data.get("LoopStatus") != null) {
+            loop = (String) data.get("LoopStatus").getValue();
+        }
+        if (data.get("Shuffle") != null) {
+            shuffle = (boolean) data.get("Shuffle").getValue();
+        }
+        if (data.get("Rate") != null) {
+            rate = (double) data.get("Rate").getValue();
+            if (!playing && tempPlaying && rate > 0.0) {
+                playing = true;
+                if (!init)
+                    positionTimer.interrupt();
+            }
+        }
+        if (data.get("PlaybackStatus") != null) {
+            if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
+                resetValues();
+                return;
+            }
+            tempPlaying = data.get("PlaybackStatus").getValue().toString().equals("Playing");
+            playing = tempPlaying && rate > 0.0;
+            if (!init && playing)
+                positionTimer.interrupt();
+        }
+        if (data.get("Metadata") != null) {
+            Map<?, ?> newMetadata = (Map<?, ?>) data
+                    .get("Metadata")
+                    .getValue();
+            Map<String, Object> metadata = new HashMap<>();
+            for (Map.Entry<?, ?> entry : newMetadata.entrySet()) {
+                metadata.put((String) entry.getKey(), ((Variant<?>) entry.getValue()).getValue());
+            }
+            updateMetadata(metadata);
+        }
+        if (init && data.get("Position") != null) {
+            long positionLong = (long) data.get("Position").getValue();
+            updatePosition(positionLong / microToMs, true);
+        }
+
+        updateMaps();
     }
 
     private static void updateMetadata(Map<String, ?> metadata) {
@@ -188,7 +232,6 @@ public class MprisCustomHud implements ModInitializer {
             currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getPlayer();
             saveToFile();
         }
-        ;
         refreshValues();
     }
 
@@ -321,19 +364,10 @@ public class MprisCustomHud implements ModInitializer {
     protected static void refreshValues() {
         try {
             if (dbus != null && Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
-                Properties data = conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Properties.class);
-                Map<String, ?> metadata = data.Get("org.mpris.MediaPlayer2.Player", "Metadata");
-
-                if (metadata != null)
-                    updateMetadata(metadata);
-                loop = data.Get("org.mpris.MediaPlayer2.Player", "LoopStatus");
-                shuffle = data.Get("org.mpris.MediaPlayer2.Player", "Shuffle");
-                playing = data.Get("org.mpris.MediaPlayer2.Player", "PlaybackStatus").toString().equals("Playing");
-                rate = data.Get("org.mpris.MediaPlayer2.Player", "Rate");
-                long positionLong = data.Get("org.mpris.MediaPlayer2.Player", "Position");
-                updatePosition(positionLong / microToMs, true);
-
-                updateMaps();
+                Map<String, Variant<?>> data = conn
+                        .getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Properties.class)
+                        .GetAll("org.mpris.MediaPlayer2.Player");
+                updateData(data, true);
             }
         } catch (DBusException e) {
             LOGGER.error(Arrays.toString(e.getStackTrace()));
@@ -374,38 +408,7 @@ public class MprisCustomHud implements ModInitializer {
                 // check if signal came from the currently selected player
                 if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
                     Map<String, Variant<?>> changed = signal.getPropertiesChanged();
-                    if (changed.get("LoopStatus") != null) {
-                        loop = (String) changed.get("LoopStatus").getValue();
-                    }
-                    if (changed.get("Shuffle") != null) {
-                        shuffle = (boolean) changed.get("Shuffle").getValue();
-                    }
-                    if (changed.get("Rate") != null) {
-                        rate = (double) changed.get("Rate").getValue();
-                    }
-                    if (changed.get("PlaybackStatus") != null) {
-                        if (changed.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                            resetValues();
-                            positionReset = false;
-                            positionResetLock.notify();
-                            return;
-                        }
-                        playing = changed.get("PlaybackStatus").getValue().toString().equals("Playing")
-                                && rate != 0.0;
-                        if (playing)
-                            positionTimer.interrupt();
-                    }
-                    if (changed.get("Metadata") != null) {
-                        Map<?, ?> newMetadata = (Map<?, ?>) changed
-                                .get("Metadata")
-                                .getValue();
-                        Map<String, Object> metadata = new HashMap<>();
-                        for (Map.Entry<?, ?> entry : newMetadata.entrySet()) {
-                            metadata.put((String) entry.getKey(), ((Variant<?>) entry.getValue()).getValue());
-                        }
-                        updateMetadata(metadata);
-                    }
-                    updateMaps();
+                    updateData(changed, false);
                 }
                 positionReset = false;
                 positionResetLock.notify();
