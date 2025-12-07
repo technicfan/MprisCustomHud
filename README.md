@@ -18,6 +18,7 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 | `mpris_loop`     | String  | loop status - "None", "Track" or "Playlist"                                     |
 | `mpris_artist`   | String  | name of the first artist coming from mpris                                      |
 | `mpris_artists`  | String  | comma seperated list of artists                                                 |
+| `mpris_player`   | String  | the unique player name that comes after `org.mpris.MediaPlayer2.`               |
 | `mpris_shuffle`  | Boolean | wether shuffle is on                                                            |
 | `mpris_playing`  | Boolean | wether the song is playing or paused/stopped                                    |
 | `mpris_progress` | Special | progress in (HH:)?MM:SS format, number of seconds, progress > 0                 |
@@ -26,18 +27,21 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 
 ### Controls
 
-There are keybindings for play/pause, next, previous and refresh that all have correcsponding commands.
+There are keybindings for play/pause, next, previous, refresh and cycle through active players that all have correcsponding commands.
 
 ### Configuration
 
-You can choose a mpris player (default is "spotify") you want to see with the `mpriscustomhud player <player>` command which will also suggest currently active ones.
+By default a player is selected from the active ones. To cycle through the currently active ones, use the `mpriscustomhud cycle` command (only works if no filter is set).
 <br>
-With `mpriscustomhud player`, you get the chosen one and with `mpriscustomhud refresh`, you can refresh the variables for the selected player.
+You can also choose a mpris player if you only want to see that one with the `mpriscustomhud filter <player>` command which will also suggest currently active ones.
+<br>
+If you still want to see other players but prefer one of them, use `mpriscustomhud preferred <player>` so that one will always be shown if it's active.
+<br>
+With `mpriscustomhud player`, you get the currently active player, with `mpriscustomhud filter` and `mpriscustomhud preferred` the values for that and with `mpriscustomhud refresh`, you can refresh the variables.
 
-### Problems
+### Problems/Todo
 
-- ~~I could not find a way to filter Mpris signals for a specific player, so the variables update in weird ways, when multiple Mpris players are active on the system~~
-    - ~~when this happens, use the refresh command~~
+- currently there is no album art variable; maybe I will try to add it at some point
 - ~~the `mpris_progress` variable is not a perfect representation of the actual progress, but should be good enough~~<br>(it's still not perfect, but much better)
 
 ### Libraries used

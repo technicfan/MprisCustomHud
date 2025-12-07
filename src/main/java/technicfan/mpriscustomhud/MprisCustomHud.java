@@ -39,8 +39,8 @@ public class MprisCustomHud implements ModInitializer {
     private static File CONFIG_FILE;
     private static MprisCustomHudConfig CONFIG = new MprisCustomHudConfig();
 
-    private final static long microToMs = 1000L;
-    private static double rate;
+    private static final long microToMs = 1000L;
+    private static final String busPrefix = "org.mpris.MediaPlayer2.";
 
     private static Map<String, String> stringmap = new HashMap<>();
     private static Map<String, Boolean> boolmap = new HashMap<>();
@@ -67,7 +67,7 @@ public class MprisCustomHud implements ModInitializer {
                     info.getPositionMs() / microToMs > 0));
             specialmap.put("mpris_duration", new Triplet<>(info.getDuration(), info.getLengthMs() / microToMs,
                     info.getLengthMs() / microToMs > 0));
-            specialmap.put("mpris_rate", new Triplet<>(String.format("%.2f", rate), rate, rate > 0.0));
+            specialmap.put("mpris_rate", new Triplet<>(String.format("%.2f", info.getRate()), info.getRate(), info.getRate() > 0.0));
         }
     }
 
@@ -75,6 +75,11 @@ public class MprisCustomHud implements ModInitializer {
         if (busName.equals(currentBusName)) {
             specialmap.put("mpris_progress", new Triplet<>(progress, position, position > 0));
         }
+    }
+
+    private static void updateBusName(String newName) {
+        currentBusName = newName;
+        stringmap.put("mpris_player", currentBusName.replace(busPrefix, ""));
     }
 
     private static void initCustomHud() {
@@ -102,14 +107,14 @@ public class MprisCustomHud implements ModInitializer {
             filter = "";
         }
         if (!CONFIG.getFilter().equals(filter)) {
-            String oldFilter = "org.mpris.MediaPlayer2." + CONFIG.getFilter();
+            String oldFilter = busPrefix + CONFIG.getFilter();
             if (players.containsKey(oldFilter) && !getActivePlayers().contains(oldFilter)) {
                 players.get(oldFilter).destroy();
                 players.remove(oldFilter);
             }
             CONFIG.setFilter(filter);
             CONFIG.setPreferred("");
-            currentBusName = "org.mpris.MediaPlayer2." + filter;
+            updateBusName(busPrefix + filter);
             if (!getActivePlayers().contains(currentBusName)) {
                 updateMaps(new PlayerInfo(currentBusName));
             } else {
@@ -124,15 +129,15 @@ public class MprisCustomHud implements ModInitializer {
             preferred = "";
         }
         if (!CONFIG.getPreferred().equals(preferred)) {
-            String oldFilter = "org.mpris.MediaPlayer2." + CONFIG.getFilter();
+            String oldFilter = busPrefix + CONFIG.getFilter();
             if (players.containsKey(oldFilter) && !getActivePlayers().contains(oldFilter)) {
                 players.get(oldFilter).destroy();
                 players.remove(oldFilter);
             }
             CONFIG.setPreferred(preferred);
             CONFIG.setFilter("");
-            if (players.containsKey("org.mpris.MediaPlayer2." + preferred)) {
-                currentBusName = "org.mpris.MediaPlayer2." + preferred;
+            if (players.containsKey(busPrefix + preferred)) {
+                updateBusName(busPrefix + preferred);
                 updateMaps(players.get(currentBusName));
             } else if (!oldFilter.endsWith(".")) {
                 cyclePlayers();
@@ -151,7 +156,7 @@ public class MprisCustomHud implements ModInitializer {
         List<String> players = new ArrayList<>();
         if (dbus != null) {
             for (String name : dbus.ListNames()) {
-                if (name.startsWith("org.mpris.MediaPlayer2.")) {
+                if (name.startsWith(busPrefix)) {
                     players.add(name);
                 }
             }
@@ -160,7 +165,7 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     protected static String getPlayer() {
-        return currentBusName.replace("org.mpris.MediaPlayer2.", "");
+        return currentBusName.replace(busPrefix, "");
     }
 
     protected static String getFilter() {
@@ -197,20 +202,21 @@ public class MprisCustomHud implements ModInitializer {
     public void onInitialize() {
         CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve(MOD_ID + ".json").toFile();
         loadConfig();
-        currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getFilter();
+        String busName = busPrefix + CONFIG.getFilter();
 
         try {
             conn = DBusConnectionBuilder.forSessionBus().build();
             dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
-            if (CONFIG.getFilter().isEmpty() && getActivePlayers().contains(currentBusName + CONFIG.getPreferred())) {
-                currentBusName += CONFIG.getPreferred();
+            if (CONFIG.getFilter().isEmpty() && getActivePlayers().contains(busName + CONFIG.getPreferred())) {
+                busName += CONFIG.getPreferred();
             }
             for (String name : getActivePlayers()) {
-                if (currentBusName.equals("org.mpris.MediaPlayer2.")) {
-                    currentBusName = name;
+                if (busName.equals(busPrefix)) {
+                    busName = name;
                 }
                 players.put(name, new PlayerInfo(name, true));
             }
+            updateBusName(busName);
             if (!players.containsKey(currentBusName))
                 updateMaps(new PlayerInfo(currentBusName));
             initCustomHud();
@@ -226,7 +232,7 @@ public class MprisCustomHud implements ModInitializer {
         if (players.size() > 0 && CONFIG.getFilter().isEmpty()) {
             List<String> keys = new ArrayList<>(players.keySet());
             int index = keys.indexOf(currentBusName);
-            currentBusName = keys.get(index + 1 == keys.size() ? 0 : index + 1);
+            updateBusName(keys.get(index + 1 == keys.size() ? 0 : index + 1));
             updateMaps(players.get(currentBusName));
         }
     }
@@ -279,17 +285,17 @@ public class MprisCustomHud implements ModInitializer {
                 players.get(signal.name).destroy();
                 players.remove(signal.name);
                 if (signal.name.equals(currentBusName) && CONFIG.getFilter().isEmpty()) {
-                    if (players.containsKey("org.mpris.MediaPlayer2." + CONFIG.getPreferred())) {
-                        currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getPreferred();
+                    if (players.containsKey(busPrefix + CONFIG.getPreferred())) {
+                        updateBusName(busPrefix + CONFIG.getPreferred());
                         updateMaps(players.get(currentBusName));
                     } else {
                         cyclePlayers();
                     }
                 }
             } else if (!signal.newOwner.isEmpty() && signal.oldOwner.isEmpty()
-                    && signal.name.startsWith("org.mpris.MediaPlayer2.")) {
-                if (signal.name.equals("org.mpris.MediaPlayer2." + CONFIG.getPreferred())) {
-                    currentBusName = signal.name;
+                    && signal.name.startsWith(busPrefix)) {
+                if (signal.name.equals(busPrefix + CONFIG.getPreferred())) {
+                    updateBusName(signal.name);
                 }
                 players.put(signal.name, new PlayerInfo(signal.name, false));
                 if (!players.containsKey(currentBusName)) {
