@@ -26,11 +26,20 @@ public class MprisCustomHudClient implements ClientModInitializer {
     public void onInitializeClient() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
                 ClientCommandManager.literal(MprisCustomHud.MOD_ID)
-                        .then(ClientCommandManager.literal("player")
-                                .then(ClientCommandManager.argument("player", StringArgumentType.string())
+                        .then(ClientCommandManager.literal("filter")
+                                .then(ClientCommandManager.argument("filter", StringArgumentType.string())
                                         .suggests(new PlayerSuggestionProvider())
-                                        .executes(MprisCustomHudClient::updatePlayer))
+                                        .executes(MprisCustomHudClient::updateFilter))
+                                .executes(MprisCustomHudClient::queryFilter))
+                        .then(ClientCommandManager.literal("preferred")
+                                .then(ClientCommandManager.argument("preferred", StringArgumentType.string())
+                                        .suggests(new PlayerSuggestionProvider())
+                                        .executes(MprisCustomHudClient::updatePreferred))
+                                .executes(MprisCustomHudClient::queryPreferred))
+                        .then(ClientCommandManager.literal("player")
                                 .executes(MprisCustomHudClient::queryPlayer))
+                        .then(ClientCommandManager.literal("cycle")
+                                .executes(MprisCustomHudClient::cyclePlayers))
                         .then(ClientCommandManager.literal("refresh")
                                 .executes(MprisCustomHudClient::refreshPlayer))
                         .then(ClientCommandManager.literal("playpause")
@@ -47,7 +56,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
         Object MOD_CATEGORY;
         Class<?> categoryClass;
         Constructor<KeyBinding> keybindingCtor;
-        KeyBinding playPauseBinding, nextBinding, prevBinding, refreshBinding;
+        KeyBinding playPauseBinding, nextBinding, prevBinding, refreshBinding, cycleBinding;
         // Keybinding category with Keybinding.Category for Minecraft >= 1.21.9
         if (version.length == 3 && Integer.parseInt(version[0]) >= 1 && Integer.parseInt(version[1]) >= 21
                 && Integer.parseInt(version[2]) >= 9) {
@@ -92,6 +101,11 @@ public class MprisCustomHudClient implements ClientModInitializer {
                     InputUtil.Type.KEYSYM,
                     InputUtil.UNKNOWN_KEY.getCode(),
                     categoryClass.cast(MOD_CATEGORY)));
+            cycleBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
+                    "mpriscustomhud.key.cycle",
+                    InputUtil.Type.KEYSYM,
+                    InputUtil.UNKNOWN_KEY.getCode(),
+                    categoryClass.cast(MOD_CATEGORY)));
         } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
             return;
         }
@@ -113,23 +127,19 @@ public class MprisCustomHudClient implements ClientModInitializer {
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (refreshBinding.wasPressed()) {
-                MprisCustomHud.refreshValues();
+                MprisCustomHud.refresh();
+            }
+        });
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (cycleBinding.wasPressed()) {
+                MprisCustomHud.cyclePlayers();
             }
         });
     }
 
     private static int refreshPlayer(CommandContext<FabricClientCommandSource> commandContext) {
         CompletableFuture.runAsync(() -> {
-            MprisCustomHud.setPlayer(MprisCustomHud.getPlayer());
-        });
-        return 1;
-    }
-
-    private static int updatePlayer(CommandContext<FabricClientCommandSource> commandContext) {
-        CompletableFuture.runAsync(() -> {
-            MprisCustomHud.setPlayer(StringArgumentType.getString(commandContext, "player"));
-            commandContext.getSource()
-                    .sendFeedback(Text.translatable("mpriscustomhud.command.new_player", MprisCustomHud.getPlayer()));
+            MprisCustomHud.refresh();
         });
         return 1;
     }
@@ -137,6 +147,45 @@ public class MprisCustomHudClient implements ClientModInitializer {
     private static int queryPlayer(CommandContext<FabricClientCommandSource> commandContext) {
         commandContext.getSource()
                 .sendFeedback(Text.translatable("mpriscustomhud.command.current_player", MprisCustomHud.getPlayer()));
+        return 1;
+    }
+
+    private static int cyclePlayers(CommandContext<FabricClientCommandSource> commandContext) {
+        CompletableFuture.runAsync(() -> {
+            MprisCustomHud.cyclePlayers();
+        });
+        return 1;
+    }
+
+    private static int updateFilter(CommandContext<FabricClientCommandSource> commandContext) {
+        CompletableFuture.runAsync(() -> {
+            MprisCustomHud.setFilter(StringArgumentType.getString(commandContext, "filter"));
+            commandContext.getSource()
+                    .sendFeedback(Text.translatable("mpriscustomhud.command.new_filter", MprisCustomHud.getFilter()));
+        });
+        return 1;
+    }
+
+    private static int queryFilter(CommandContext<FabricClientCommandSource> commandContext) {
+        commandContext.getSource()
+                .sendFeedback(Text.translatable("mpriscustomhud.command.current_filter", MprisCustomHud.getFilter()));
+        return 1;
+    }
+
+    private static int updatePreferred(CommandContext<FabricClientCommandSource> commandContext) {
+        CompletableFuture.runAsync(() -> {
+            MprisCustomHud.setPreferred(StringArgumentType.getString(commandContext, "preferred"));
+            commandContext.getSource()
+                    .sendFeedback(
+                            Text.translatable("mpriscustomhud.command.new_preferred", MprisCustomHud.getPreferred()));
+        });
+        return 1;
+    }
+
+    private static int queryPreferred(CommandContext<FabricClientCommandSource> commandContext) {
+        commandContext.getSource()
+                .sendFeedback(
+                        Text.translatable("mpriscustomhud.command.current_preferred", MprisCustomHud.getPreferred()));
         return 1;
     }
 

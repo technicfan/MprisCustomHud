@@ -1,17 +1,27 @@
 package technicfan.mpriscustomhud;
 
 public class MprisCustomHudConfig {
-    private String player;
+    private String filter;
+    private String preferred;
 
     public MprisCustomHudConfig() {
-        player = "spotify";
+        filter = "";
+        preferred = "";
     }
 
-    public String getPlayer() {
-        return player;
+    public String getFilter() {
+        return filter;
     }
 
-    public void setPlayer(String newPlayer) {
-        player = newPlayer;
+    public String getPreferred() {
+        return preferred;
+    }
+
+    public void setFilter(String filter) {
+        this.filter = filter;
+    }
+
+    public void setPreferred(String preferred) {
+        this.preferred = preferred;
     }
 }

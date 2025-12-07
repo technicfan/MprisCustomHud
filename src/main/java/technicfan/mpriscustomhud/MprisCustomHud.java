@@ -17,14 +17,9 @@ import java.util.Map;
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
 import org.freedesktop.dbus.exceptions.DBusException;
-import org.freedesktop.dbus.handlers.AbstractPropertiesChangedHandler;
 import org.freedesktop.dbus.interfaces.DBus;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
-import org.freedesktop.dbus.interfaces.Properties;
 import org.freedesktop.dbus.interfaces.DBus.NameOwnerChanged;
-import org.freedesktop.dbus.interfaces.Properties.PropertiesChanged;
-import org.freedesktop.dbus.types.UInt64;
-import org.freedesktop.dbus.types.Variant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,165 +39,42 @@ public class MprisCustomHud implements ModInitializer {
     private static File CONFIG_FILE;
     private static MprisCustomHudConfig CONFIG = new MprisCustomHudConfig();
 
-    private final static long microToMs = 1000L, positionUpdateTime = 100L;
-    private static String track, trackId, album, progress, duration, loop, artist, artists;
-    private static boolean shuffle, playing, tempPlaying;
-    private static long positionMs, lengthMs;
+    private final static long microToMs = 1000L;
     private static double rate;
 
-    private static HashMap<String, String> stringmap = new HashMap<>();
-    private static HashMap<String, Boolean> boolmap = new HashMap<>();
-    private static HashMap<String, Triplet<String, Number, Boolean>> specialmap = new HashMap<>();
+    private static Map<String, String> stringmap = new HashMap<>();
+    private static Map<String, Boolean> boolmap = new HashMap<>();
+    private static Map<String, Triplet<String, Number, Boolean>> specialmap = new HashMap<>();
 
-    private static DBus dbus;
-    private static DBusConnection conn;
-    private static Thread positionTimer;
+    protected static DBus dbus;
+    protected static DBusConnection conn;
+    private static Map<String, PlayerInfo> players = new HashMap<>();
     private static String currentBusName;
-    private static boolean positionReset = false;
-    private static Object positionResetLock = new Object(), positionUpdateLock = new Object();
 
-    private static void resetValues() {
-        track = "";
-        trackId = "";
-        album = "";
-        progress = "";
-        duration = "";
-        loop = "";
-        artist = "";
-        artists = "";
-        shuffle = false;
-        playing = false;
-        tempPlaying = false;
-        positionMs = 0;
-        lengthMs = 0;
-        rate = 1.0;
+    protected static void updateMaps(PlayerInfo info) {
+        if (info.getBusName().equals(currentBusName)) {
+            stringmap.put("mpris_track", info.getTrack());
+            stringmap.put("mpris_track_id", info.getTrackId());
+            stringmap.put("mpris_album", info.getAlbum());
+            stringmap.put("mpris_loop", info.getLoop());
+            stringmap.put("mpris_artist", info.getArtist());
+            stringmap.put("mpris_artists", info.getArtists());
 
-        updateMaps();
-    }
+            boolmap.put("mpris_shuffle", info.getShuffle());
+            boolmap.put("mpris_playing", info.getPlaying());
 
-    private static void updateMaps() {
-        stringmap.put("mpris_track", track);
-        stringmap.put("mpris_track_id", trackId);
-        stringmap.put("mpris_album", album);
-        stringmap.put("mpris_loop", loop);
-        stringmap.put("mpris_artist", artist);
-        stringmap.put("mpris_artists", artists);
-
-        boolmap.put("mpris_shuffle", shuffle);
-        boolmap.put("mpris_playing", playing);
-
-        specialmap.put("mpris_progress", new Triplet<>(progress, positionMs / microToMs, positionMs / microToMs > 0));
-        specialmap.put("mpris_duration", new Triplet<>(duration, lengthMs / microToMs, lengthMs / microToMs > 0));
-        specialmap.put("mpris_rate", new Triplet<>(String.format("%.2f", rate), rate, rate > 0.0));
-    }
-
-    private static void updateData(Map<String, Variant<?>> data, boolean init) {
-        if (data.get("LoopStatus") != null) {
-            loop = (String) data.get("LoopStatus").getValue();
-        }
-        if (data.get("Shuffle") != null) {
-            shuffle = (boolean) data.get("Shuffle").getValue();
-        }
-        if (data.get("Rate") != null) {
-            rate = (double) data.get("Rate").getValue();
-            if (!playing && tempPlaying && rate > 0.0) {
-                playing = true;
-                if (!init)
-                    positionTimer.interrupt();
-            }
-        }
-        if (data.get("PlaybackStatus") != null) {
-            if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                resetValues();
-                return;
-            }
-            tempPlaying = data.get("PlaybackStatus").getValue().toString().equals("Playing");
-            playing = tempPlaying && rate > 0.0;
-            if (!init && playing)
-                positionTimer.interrupt();
-        }
-        if (data.get("Metadata") != null) {
-            Map<?, ?> newMetadata = (Map<?, ?>) data
-                    .get("Metadata")
-                    .getValue();
-            Map<String, Object> metadata = new HashMap<>();
-            for (Map.Entry<?, ?> entry : newMetadata.entrySet()) {
-                metadata.put((String) entry.getKey(), ((Variant<?>) entry.getValue()).getValue());
-            }
-            updateMetadata(metadata);
-        }
-        if (init && data.get("Position") != null) {
-            long positionLong = (long) data.get("Position").getValue();
-            updatePosition(positionLong / microToMs, true);
-        }
-
-        updateMaps();
-    }
-
-    private static void updateMetadata(Map<String, ?> metadata) {
-        String tempId = trackId;
-        Object lengthObj, trackObj, trackIdObj, albumObj, artistsObj;
-        lengthObj = metadata.get("mpris:length");
-        trackIdObj = metadata.get("mpris:trackid");
-        artistsObj = metadata.get("xesam:artist");
-        trackObj = metadata.get("xesam:title");
-        albumObj = metadata.get("xesam:album");
-        if (lengthObj != null) {
-            if (lengthObj instanceof UInt64) {
-                lengthMs = ((UInt64) lengthObj).longValue() / microToMs;
-            } else {
-                lengthMs = (long) lengthObj / microToMs;
-            }
-            long length = lengthMs / microToMs;
-            duration = String.format("%s%02d:%02d", length / 3600 > 0 ? String.format("%02d:", length / 3600) : "",
-                    length / 60 % 60, length % 60);
-        } else {
-            lengthMs = 0;
-            duration = "";
-        }
-        if (artistsObj != null && artistsObj instanceof List) {
-            List<?> tempList = (List<?>) artistsObj;
-            List<String> list = new ArrayList<>();
-            for (Object name : tempList) {
-                list.add((String) name);
-            }
-            artist = list.get(0);
-            artists = String.join(", ", list);
-        } else {
-            artist = "";
-            artists = "";
-        }
-        if (trackObj != null && trackObj instanceof String) {
-            track = (String) trackObj;
-        } else {
-            track = "";
-        }
-        if (trackIdObj != null && trackIdObj instanceof String) {
-            trackId = (String) trackIdObj;
-        } else {
-            trackId = "";
-        }
-        if (albumObj != null && albumObj instanceof String) {
-            album = (String) albumObj;
-        } else {
-            album = "";
-        }
-        if (!trackId.equals(tempId)) {
-            // needed as the Seeked signal doesn't have to be
-            // emitted when tracks change
-            updatePosition(0, true);
+            specialmap.put("mpris_progress", new Triplet<>(info.getProgress(), info.getPositionMs() / microToMs,
+                    info.getPositionMs() / microToMs > 0));
+            specialmap.put("mpris_duration", new Triplet<>(info.getDuration(), info.getLengthMs() / microToMs,
+                    info.getLengthMs() / microToMs > 0));
+            specialmap.put("mpris_rate", new Triplet<>(String.format("%.2f", rate), rate, rate > 0.0));
         }
     }
 
-    private static void updatePosition(long newPosition, boolean restart) {
-        positionMs = newPosition;
-        if (restart) {
-            positionTimer.interrupt();
+    protected static void updatePostionMap(String busName, String progress, long position) {
+        if (busName.equals(currentBusName)) {
+            specialmap.put("mpris_progress", new Triplet<>(progress, position, position > 0));
         }
-        long position = positionMs / microToMs;
-        progress = String.format("%s%02d:%02d", position / 3600 > 0 ? String.format("%02d:", position / 3600) : "",
-                position / 60 % 60, position % 60);
-        specialmap.put("mpris_progress", new Triplet<>(progress, position, position > 0));
     }
 
     private static void initCustomHud() {
@@ -225,14 +97,54 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    protected static void setPlayer(String newPlayer) {
-        if (!CONFIG.getPlayer().equals(newPlayer)) {
-            resetValues();
-            CONFIG.setPlayer(newPlayer);
-            currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getPlayer();
+    protected static void setFilter(String filter) {
+        if (filter.equals("None")) {
+            filter = "";
+        }
+        if (!CONFIG.getFilter().equals(filter)) {
+            String oldFilter = "org.mpris.MediaPlayer2." + CONFIG.getFilter();
+            if (players.containsKey(oldFilter) && !getActivePlayers().contains(oldFilter)) {
+                players.get(oldFilter).destroy();
+                players.remove(oldFilter);
+            }
+            CONFIG.setFilter(filter);
+            CONFIG.setPreferred("");
+            currentBusName = "org.mpris.MediaPlayer2." + filter;
+            if (!getActivePlayers().contains(currentBusName)) {
+                updateMaps(new PlayerInfo(currentBusName, true));
+            } else {
+                updateMaps(players.get(currentBusName));
+            }
             saveToFile();
         }
-        refreshValues();
+    }
+
+    protected static void setPreferred(String preferred) {
+        if (preferred.equals("None")) {
+            preferred = "";
+        }
+        if (!CONFIG.getPreferred().equals(preferred)) {
+            String oldFilter = "org.mpris.MediaPlayer2." + CONFIG.getFilter();
+            if (players.containsKey(oldFilter) && !getActivePlayers().contains(oldFilter)) {
+                players.get(oldFilter).destroy();
+                players.remove(oldFilter);
+            }
+            CONFIG.setPreferred(preferred);
+            CONFIG.setFilter("");
+            if (players.containsKey("org.mpris.MediaPlayer2." + preferred)) {
+                currentBusName = "org.mpris.MediaPlayer2." + preferred;
+                updateMaps(players.get(currentBusName));
+            } else if (!oldFilter.endsWith(".")) {
+                cyclePlayers();
+            }
+            saveToFile();
+        }
+    }
+
+    protected static void refresh() {
+        if (players.containsKey(currentBusName)) {
+            players.get(currentBusName).refreshValues();
+        }
     }
 
     protected static List<String> getActivePlayers() {
@@ -240,7 +152,7 @@ public class MprisCustomHud implements ModInitializer {
         if (dbus != null) {
             for (String name : dbus.ListNames()) {
                 if (name.startsWith("org.mpris.MediaPlayer2.")) {
-                    players.add(name.replace("org.mpris.MediaPlayer2.", ""));
+                    players.add(name);
                 }
             }
         }
@@ -248,7 +160,15 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     protected static String getPlayer() {
-        return CONFIG.getPlayer();
+        return currentBusName.replace("org.mpris.MediaPlayer2.", "");
+    }
+
+    protected static String getFilter() {
+        return CONFIG.getFilter().isEmpty() ? "None" : CONFIG.getFilter();
+    }
+
+    protected static String getPreferred() {
+        return CONFIG.getPreferred().isEmpty() ? "None" : CONFIG.getPreferred();
     }
 
     private static void loadConfig() {
@@ -256,7 +176,7 @@ public class MprisCustomHud implements ModInitializer {
             try {
                 try (FileReader reader = new FileReader(CONFIG_FILE)) {
                     CONFIG = new Gson().fromJson(reader, MprisCustomHudConfig.class);
-                    LOGGER.info("MPRIS player is now " + CONFIG.getPlayer());
+                    LOGGER.info("MPRIS CustomHud config loaded!");
                 }
             } catch (IOException e) {
                 LOGGER.error(Arrays.toString(e.getStackTrace()));
@@ -277,46 +197,37 @@ public class MprisCustomHud implements ModInitializer {
     public void onInitialize() {
         CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve(MOD_ID + ".json").toFile();
         loadConfig();
-        resetValues();
-        initCustomHud();
-        currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getPlayer();
+        currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getFilter();
 
         try {
             conn = DBusConnectionBuilder.forSessionBus().build();
             dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
-            positionTimer = new Thread(() -> {
-                while (true) {
-                    try {
-                        long loopStart = System.currentTimeMillis();
-                        Thread.sleep(positionUpdateTime);
-                        if (playing) {
-                            if (positionMs < lengthMs) {
-                                updatePosition(positionMs + (long) ((System.currentTimeMillis() - loopStart) * rate),
-                                        false);
-                            }
-                        } else {
-                            synchronized (positionUpdateLock) {
-                                positionUpdateLock.wait();
-                            }
-                        }
-                    } catch (InterruptedException e) {
-                        continue;
-                    }
+            if (CONFIG.getFilter().isEmpty() && getActivePlayers().contains(currentBusName + CONFIG.getPreferred())) {
+                currentBusName += CONFIG.getPreferred();
+            }
+            for (String name : getActivePlayers()) {
+                if (currentBusName.equals("org.mpris.MediaPlayer2.")) {
+                    currentBusName = name;
                 }
-            });
-            positionTimer.setName("Track progress timer");
-            // listen for music Properties (like metadata, shuffle status, ...)
-            conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
-            // listen for progress jumps for the current track
-            conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
+                players.put(name, new PlayerInfo(name, true));
+            }
+            if (!players.containsKey(currentBusName))
+                updateMaps(new PlayerInfo(currentBusName, true));
+            initCustomHud();
             // listen for name owner changes to reset the values in case the player
             // terminates
             conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
-            positionTimer.start();
-            refreshValues();
         } catch (DBusException e) {
             LOGGER.error(Arrays.toString(e.getStackTrace()));
-            return;
+        }
+    }
+
+    protected static void cyclePlayers() {
+        if (players.size() > 0 && CONFIG.getFilter().isEmpty()) {
+            List<String> keys = new ArrayList<>(players.keySet());
+            int index = keys.indexOf(currentBusName);
+            currentBusName = keys.get(index + 1 == keys.size() ? 0 : index + 1);
+            updateMaps(players.get(currentBusName));
         }
     }
 
@@ -361,57 +272,29 @@ public class MprisCustomHud implements ModInitializer {
             player.Previous();
     }
 
-    protected static void refreshValues() {
-        try {
-            if (dbus != null && Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
-                Map<String, Variant<?>> data = conn
-                        .getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Properties.class)
-                        .GetAll("org.mpris.MediaPlayer2.Player");
-                updateData(data, true);
-            }
-        } catch (DBusException e) {
-            LOGGER.error(Arrays.toString(e.getStackTrace()));
-        }
-    }
-
-    private static class SeekedHandler implements DBusSigHandler<Player.Seeked> {
-        public void handle(Player.Seeked signal) {
-            synchronized (positionResetLock) {
-                // check if signal came from the currently selected player
-                if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
-                    if (positionReset) {
-                        try {
-                            positionResetLock.wait();
-                        } catch (InterruptedException e) {
-                        }
-                    }
-                    updatePosition(signal.getPosition() / microToMs, true);
-                }
-            }
-        }
-    }
-
     private static class NameOwnerChangedHandler implements DBusSigHandler<DBus.NameOwnerChanged> {
         @Override
         public void handle(DBus.NameOwnerChanged signal) {
-            if (signal.name.equals(currentBusName) && signal.newOwner.isEmpty()) {
-                resetValues();
-            }
-        }
-    }
-
-    private static class PropChangedHandler extends AbstractPropertiesChangedHandler {
-        @Override
-        public void handle(PropertiesChanged signal) {
-            synchronized (positionResetLock) {
-                positionReset = true;
-                // check if signal came from the currently selected player
-                if (dbus.GetNameOwner(currentBusName).equals(signal.getSource())) {
-                    Map<String, Variant<?>> changed = signal.getPropertiesChanged();
-                    updateData(changed, false);
+            if (signal.newOwner.isEmpty() && !signal.oldOwner.isEmpty() && players.containsKey(signal.name)) {
+                players.get(signal.name).destroy();
+                players.remove(signal.name);
+                if (signal.name.equals(currentBusName) && CONFIG.getFilter().isEmpty()) {
+                    if (players.containsKey("org.mpris.MediaPlayer2." + CONFIG.getPreferred())) {
+                        currentBusName = "org.mpris.MediaPlayer2." + CONFIG.getPreferred();
+                        updateMaps(players.get(currentBusName));
+                    } else {
+                        cyclePlayers();
+                    }
                 }
-                positionReset = false;
-                positionResetLock.notify();
+            } else if (!signal.newOwner.isEmpty() && signal.oldOwner.isEmpty()
+                    && signal.name.startsWith("org.mpris.MediaPlayer2.")) {
+                if (signal.name.equals("org.mpris.MediaPlayer2." + CONFIG.getPreferred())) {
+                    currentBusName = signal.name;
+                }
+                players.put(signal.name, new PlayerInfo(signal.name, false));
+                if (!players.containsKey(currentBusName)) {
+                    cyclePlayers();
+                }
             }
         }
     }

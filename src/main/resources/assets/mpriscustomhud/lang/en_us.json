@@ -6,6 +6,10 @@
     "mpriscustomhud.key.next": "Next Song",
     "mpriscustomhud.key.prev": "Previous Song",
     "mpriscustomhud.key.refresh": "Refresh Playback Info",
-    "mpriscustomhud.command.new_player": "The new player is: %1$s",
-    "mpriscustomhud.command.current_player": "The current player is: %1$s"
+    "mpriscustomhud.key.cycle": "Cycle through Player",
+    "mpriscustomhud.command.new_filter": "The new filter is: %1$s",
+    "mpriscustomhud.command.new_preferred": "The new preferred player is: %1$s",
+    "mpriscustomhud.command.current_player": "The current player is: %1$s",
+    "mpriscustomhud.command.current_filter": "The current filter is: %1$s",
+    "mpriscustomhud.command.current_preferred": "The current preferred player is: %1$s"
 }
