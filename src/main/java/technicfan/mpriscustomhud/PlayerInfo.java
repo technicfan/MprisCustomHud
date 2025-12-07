@@ -196,7 +196,6 @@ public class PlayerInfo {
         }
         if (init && data.get("Position") != null) {
             long positionLong = (long) data.get("Position").getValue();
-            MprisCustomHud.LOGGER.info("Position: " + positionLong);
             updatePosition(positionLong / microToMs, true);
         }
 

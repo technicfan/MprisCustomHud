@@ -181,7 +181,7 @@ public class MprisCustomHud implements ModInitializer {
             try {
                 try (FileReader reader = new FileReader(CONFIG_FILE)) {
                     CONFIG = new Gson().fromJson(reader, MprisCustomHudConfig.class);
-                    LOGGER.info("MPRIS CustomHud config loaded!");
+                    LOGGER.info("MPRIS CustomHud config loaded");
                 }
             } catch (IOException e) {
                 LOGGER.error(Arrays.toString(e.getStackTrace()));
@@ -202,21 +202,21 @@ public class MprisCustomHud implements ModInitializer {
     public void onInitialize() {
         CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve(MOD_ID + ".json").toFile();
         loadConfig();
-        String busName = busPrefix + CONFIG.getFilter();
+        currentBusName = busPrefix + CONFIG.getFilter();
 
         try {
             conn = DBusConnectionBuilder.forSessionBus().build();
             dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
-            if (CONFIG.getFilter().isEmpty() && getActivePlayers().contains(busName + CONFIG.getPreferred())) {
-                busName += CONFIG.getPreferred();
+            if (CONFIG.getFilter().isEmpty() && getActivePlayers().contains(currentBusName + CONFIG.getPreferred())) {
+                currentBusName += CONFIG.getPreferred();
             }
             for (String name : getActivePlayers()) {
-                if (busName.equals(busPrefix)) {
-                    busName = name;
+                if (currentBusName.equals(busPrefix)) {
+                    currentBusName = name;
                 }
                 players.put(name, new PlayerInfo(name, true));
             }
-            updateBusName(busName);
+            updateBusName(currentBusName);
             if (!players.containsKey(currentBusName))
                 updateMaps(new PlayerInfo(currentBusName));
             initCustomHud();
