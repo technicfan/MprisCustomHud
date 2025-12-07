@@ -111,7 +111,7 @@ public class MprisCustomHud implements ModInitializer {
             CONFIG.setPreferred("");
             currentBusName = "org.mpris.MediaPlayer2." + filter;
             if (!getActivePlayers().contains(currentBusName)) {
-                updateMaps(new PlayerInfo(currentBusName, true));
+                updateMaps(new PlayerInfo(currentBusName));
             } else {
                 updateMaps(players.get(currentBusName));
             }
@@ -212,7 +212,7 @@ public class MprisCustomHud implements ModInitializer {
                 players.put(name, new PlayerInfo(name, true));
             }
             if (!players.containsKey(currentBusName))
-                updateMaps(new PlayerInfo(currentBusName, true));
+                updateMaps(new PlayerInfo(currentBusName));
             initCustomHud();
             // listen for name owner changes to reset the values in case the player
             // terminates

@@ -83,6 +83,11 @@ public class PlayerInfo {
         return rate;
     }
 
+    PlayerInfo(String name) {
+        busName = name;
+        resetValues();
+    }
+
     PlayerInfo(String name, boolean existing) {
         busName = name;
         this.existing = existing;
