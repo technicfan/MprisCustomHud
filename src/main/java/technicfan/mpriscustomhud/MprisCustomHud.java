@@ -48,6 +48,7 @@ public class MprisCustomHud implements ModInitializer {
 
     protected static DBus dbus;
     protected static DBusConnection conn;
+    private static AutoCloseable nameHandler;
     private static Map<String, PlayerInfo> players = new HashMap<>();
     private static String currentBusName;
 
@@ -67,7 +68,8 @@ public class MprisCustomHud implements ModInitializer {
                     info.getPositionMs() / microToMs > 0));
             specialmap.put("mpris_duration", new Triplet<>(info.getDuration(), info.getLengthMs() / microToMs,
                     info.getLengthMs() / microToMs > 0));
-            specialmap.put("mpris_rate", new Triplet<>(String.format("%.2f", info.getRate()), info.getRate(), info.getRate() > 0.0));
+            specialmap.put("mpris_rate",
+                    new Triplet<>(String.format("%.2f", info.getRate()), info.getRate(), info.getRate() > 0.0));
         }
     }
 
@@ -79,7 +81,7 @@ public class MprisCustomHud implements ModInitializer {
 
     private static void updateBusName(String newName) {
         currentBusName = newName;
-        stringmap.put("mpris_player", currentBusName.replace(busPrefix, ""));
+        stringmap.put("mpris_player", getPlayer());
     }
 
     private static void initCustomHud() {
@@ -107,11 +109,6 @@ public class MprisCustomHud implements ModInitializer {
             filter = "";
         }
         if (!CONFIG.getFilter().equals(filter)) {
-            String oldFilter = busPrefix + CONFIG.getFilter();
-            if (players.containsKey(oldFilter) && !getActivePlayers().contains(oldFilter)) {
-                players.get(oldFilter).destroy();
-                players.remove(oldFilter);
-            }
             CONFIG.setFilter(filter);
             CONFIG.setPreferred("");
             updateBusName(busPrefix + filter);
@@ -129,27 +126,28 @@ public class MprisCustomHud implements ModInitializer {
             preferred = "";
         }
         if (!CONFIG.getPreferred().equals(preferred)) {
-            String oldFilter = busPrefix + CONFIG.getFilter();
-            if (players.containsKey(oldFilter) && !getActivePlayers().contains(oldFilter)) {
-                players.get(oldFilter).destroy();
-                players.remove(oldFilter);
-            }
             CONFIG.setPreferred(preferred);
             CONFIG.setFilter("");
             if (players.containsKey(busPrefix + preferred)) {
                 updateBusName(busPrefix + preferred);
                 updateMaps(players.get(currentBusName));
-            } else if (!oldFilter.endsWith(".")) {
+            } else if (!players.containsKey(currentBusName)) {
                 cyclePlayers();
             }
             saveToFile();
         }
     }
 
-    protected static void refresh() {
-        if (players.containsKey(currentBusName)) {
-            players.get(currentBusName).refreshValues();
-        }
+    protected static String getPlayer() {
+        return currentBusName.equals(busPrefix) ? "None" : currentBusName.replace(busPrefix, "");
+    }
+
+    protected static String getFilter() {
+        return CONFIG.getFilter().isEmpty() ? "None" : CONFIG.getFilter();
+    }
+
+    protected static String getPreferred() {
+        return CONFIG.getPreferred().isEmpty() ? "None" : CONFIG.getPreferred();
     }
 
     protected static List<String> getActivePlayers() {
@@ -162,18 +160,6 @@ public class MprisCustomHud implements ModInitializer {
             }
         }
         return players;
-    }
-
-    protected static String getPlayer() {
-        return currentBusName.replace(busPrefix, "");
-    }
-
-    protected static String getFilter() {
-        return CONFIG.getFilter().isEmpty() ? "None" : CONFIG.getFilter();
-    }
-
-    protected static String getPreferred() {
-        return CONFIG.getPreferred().isEmpty() ? "None" : CONFIG.getPreferred();
     }
 
     private static void loadConfig() {
@@ -222,9 +208,28 @@ public class MprisCustomHud implements ModInitializer {
             initCustomHud();
             // listen for name owner changes to reset the values in case the player
             // terminates
-            conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
+            nameHandler = conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
         } catch (DBusException e) {
             LOGGER.error(Arrays.toString(e.getStackTrace()));
+        }
+    }
+
+    protected static void clear() {
+        try {
+            LOGGER.info("Closing DBus connection and signal listeners");
+            nameHandler.close();
+            for (String name : players.keySet()) {
+                players.get(name).clear();
+            }
+            conn.close();
+        } catch (Exception e) {
+            LOGGER.error(Arrays.toString(e.getStackTrace()));
+        }
+    }
+
+    protected static void refresh() {
+        if (players.containsKey(currentBusName)) {
+            players.get(currentBusName).refreshValues();
         }
     }
 
@@ -282,19 +287,25 @@ public class MprisCustomHud implements ModInitializer {
         @Override
         public void handle(DBus.NameOwnerChanged signal) {
             if (signal.newOwner.isEmpty() && !signal.oldOwner.isEmpty() && players.containsKey(signal.name)) {
-                players.get(signal.name).destroy();
+                players.get(signal.name).clear();
                 players.remove(signal.name);
-                if (signal.name.equals(currentBusName) && CONFIG.getFilter().isEmpty()) {
-                    if (players.containsKey(busPrefix + CONFIG.getPreferred())) {
-                        updateBusName(busPrefix + CONFIG.getPreferred());
-                        updateMaps(players.get(currentBusName));
+                if (signal.name.equals(currentBusName)) {
+                    if (CONFIG.getFilter().isEmpty()) {
+                        if (players.containsKey(busPrefix + CONFIG.getPreferred())) {
+                            updateBusName(busPrefix + CONFIG.getPreferred());
+                            updateMaps(players.get(currentBusName));
+                        } else {
+                            cyclePlayers();
+                        }
                     } else {
-                        cyclePlayers();
+                        updateBusName(busPrefix);
                     }
                 }
             } else if (!signal.newOwner.isEmpty() && signal.oldOwner.isEmpty()
                     && signal.name.startsWith(busPrefix)) {
                 if (signal.name.equals(busPrefix + CONFIG.getPreferred())) {
+                    updateBusName(signal.name);
+                } else if (signal.name.equals(busPrefix + CONFIG.getFilter())) {
                     updateBusName(signal.name);
                 }
                 players.put(signal.name, new PlayerInfo(signal.name, false));

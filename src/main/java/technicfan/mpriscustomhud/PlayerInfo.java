@@ -128,7 +128,7 @@ public class PlayerInfo {
         }
     }
 
-    protected void destroy() {
+    protected void clear() {
         running = false;
         positionTimer.interrupt();
         try {
