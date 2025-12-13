@@ -214,14 +214,16 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    protected static void clear() {
+    protected static void close() {
         try {
             LOGGER.info("Closing DBus connection and signal listeners");
-            nameHandler.close();
+            if (nameHandler != null)
+                nameHandler.close();
             for (String name : players.keySet()) {
-                players.get(name).clear();
+                players.get(name).close();
             }
-            conn.close();
+            if (conn != null)
+                conn.close();
         } catch (Exception e) {
             LOGGER.error(Arrays.toString(e.getStackTrace()));
         }
@@ -287,7 +289,7 @@ public class MprisCustomHud implements ModInitializer {
         @Override
         public void handle(DBus.NameOwnerChanged signal) {
             if (signal.newOwner.isEmpty() && !signal.oldOwner.isEmpty() && players.containsKey(signal.name)) {
-                players.get(signal.name).clear();
+                players.get(signal.name).close();
                 players.remove(signal.name);
                 if (signal.name.equals(currentBusName)) {
                     if (CONFIG.getFilter().isEmpty()) {

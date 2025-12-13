@@ -138,7 +138,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
-            MprisCustomHud.clear();
+            MprisCustomHud.close();
         });
     }
 

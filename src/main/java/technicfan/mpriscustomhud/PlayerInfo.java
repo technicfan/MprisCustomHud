@@ -128,7 +128,7 @@ public class PlayerInfo {
         }
     }
 
-    protected void clear() {
+    protected void close() {
         running = false;
         positionTimer.interrupt();
         try {
