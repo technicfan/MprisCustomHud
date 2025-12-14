@@ -124,7 +124,7 @@ public class PlayerInfo {
                 refreshValues();
             }
         } catch (DBusException e) {
-            MprisCustomHud.LOGGER.error(Arrays.toString(e.getStackTrace()));
+            MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
         }
     }
 
@@ -135,7 +135,7 @@ public class PlayerInfo {
             propertiesHandler.close();
             seekedHandler.close();
         } catch (Exception e) {
-            MprisCustomHud.LOGGER.error(Arrays.toString(e.getStackTrace()));
+            MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
         }
         resetValues();
     }
@@ -270,7 +270,7 @@ public class PlayerInfo {
 
     protected void refreshValues() {
         try {
-            if (MprisCustomHud.dbus != null && Arrays.asList(MprisCustomHud.dbus.ListNames()).contains(busName)) {
+            if (Arrays.asList(MprisCustomHud.dbus.ListNames()).contains(busName)) {
                 synchronized (MprisCustomHud.conn) {
                     Map<String, Variant<?>> data = MprisCustomHud.conn
                             .getRemoteObject(busName, "/org/mpris/MediaPlayer2", Properties.class)
@@ -279,7 +279,7 @@ public class PlayerInfo {
                 }
             }
         } catch (DBusException e) {
-            MprisCustomHud.LOGGER.error(Arrays.toString(e.getStackTrace()));
+            MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
         }
     }
 

@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
@@ -42,14 +41,14 @@ public class MprisCustomHud implements ModInitializer {
     private static final long microToMs = 1000L;
     private static final String busPrefix = "org.mpris.MediaPlayer2.";
 
-    private static Map<String, String> stringmap = new HashMap<>();
-    private static Map<String, Boolean> boolmap = new HashMap<>();
-    private static Map<String, Triplet<String, Number, Boolean>> specialmap = new HashMap<>();
+    private static HashMap<String, String> stringmap = new HashMap<>();
+    private static HashMap<String, Boolean> boolmap = new HashMap<>();
+    private static HashMap<String, Triplet<String, Number, Boolean>> specialmap = new HashMap<>();
 
     protected static DBus dbus;
     protected static DBusConnection conn;
     private static AutoCloseable nameHandler;
-    private static Map<String, PlayerInfo> players = new HashMap<>();
+    private static HashMap<String, PlayerInfo> players = new HashMap<>();
     private static String currentBusName;
 
     protected static void updateMaps(PlayerInfo info) {
@@ -170,7 +169,7 @@ public class MprisCustomHud implements ModInitializer {
                     LOGGER.info("MPRIS CustomHud config loaded");
                 }
             } catch (IOException e) {
-                LOGGER.error(Arrays.toString(e.getStackTrace()));
+                LOGGER.error(e.toString(), e.fillInStackTrace());
             }
         }
     }
@@ -180,7 +179,7 @@ public class MprisCustomHud implements ModInitializer {
         try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
             writer.write(gson.toJson(CONFIG));
         } catch (IOException e) {
-            LOGGER.error(Arrays.toString(e.getStackTrace()));
+            LOGGER.error(e.toString(), e.fillInStackTrace());
         }
     }
 
@@ -209,8 +208,8 @@ public class MprisCustomHud implements ModInitializer {
             // listen for name owner changes to reset the values in case the player
             // terminates
             nameHandler = conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
-        } catch (DBusException e) {
-            LOGGER.error(Arrays.toString(e.getStackTrace()));
+        } catch (Exception e) {
+            LOGGER.error(e.toString(), e.fillInStackTrace());
         }
     }
 
@@ -225,7 +224,7 @@ public class MprisCustomHud implements ModInitializer {
             if (conn != null)
                 conn.close();
         } catch (Exception e) {
-            LOGGER.error(Arrays.toString(e.getStackTrace()));
+            LOGGER.error(e.toString(), e.fillInStackTrace());
         }
     }
 
@@ -246,11 +245,11 @@ public class MprisCustomHud implements ModInitializer {
 
     private static Player getPlayerObject() {
         try {
-            if (dbus != null && Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
+            if (dbus != null && conn != null && Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
                 return conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Player.class);
             }
         } catch (DBusException e) {
-            LOGGER.error(Arrays.toString(e.getStackTrace()));
+            LOGGER.error(e.toString(), e.fillInStackTrace());
         }
         return null;
     }

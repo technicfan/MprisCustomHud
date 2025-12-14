@@ -67,6 +67,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
                         KeyBinding.Category.class);
                 categoryClass = KeyBinding.Category.class;
             } catch (NoClassDefFoundError | NoSuchMethodException | NoSuchMethodError e) {
+                MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
                 return;
             }
             // Keybinding category with String for Minecraft < 1.21.9
@@ -76,7 +77,8 @@ public class MprisCustomHudClient implements ClientModInitializer {
                 keybindingCtor = KeyBinding.class.getConstructor(String.class, InputUtil.Type.class, int.class,
                         String.class);
                 categoryClass = String.class;
-            } catch (NoSuchMethodException | NoSuchMethodError f) {
+            } catch (NoSuchMethodException | NoSuchMethodError e) {
+                MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
                 return;
             }
         }
@@ -108,6 +110,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
                     InputUtil.UNKNOWN_KEY.getCode(),
                     categoryClass.cast(MOD_CATEGORY)));
         } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
+            MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
             return;
         }
 
