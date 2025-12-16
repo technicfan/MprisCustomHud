@@ -9,13 +9,11 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
-import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.DBus;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.freedesktop.dbus.interfaces.DBus.NameOwnerChanged;
@@ -243,45 +241,44 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    private static Player getPlayerObject() {
-        try {
-            if (dbus != null && conn != null && Arrays.asList(dbus.ListNames()).contains(currentBusName)) {
-                return conn.getRemoteObject(currentBusName, "/org/mpris/MediaPlayer2", Player.class);
-            }
-        } catch (DBusException e) {
-            LOGGER.error(e.toString(), e.fillInStackTrace());
-        }
-        return null;
-    }
-
     protected static void playPause() {
-        Player player = getPlayerObject();
-        if (player != null)
-            player.PlayPause();
+        if (players.size() > 0) {
+            Player player = players.get(currentBusName).getPlayer();
+            if (player != null)
+                player.PlayPause();
+        }
     }
 
     protected static void play() {
-        Player player = getPlayerObject();
-        if (player != null)
-            player.PlayPause();
+        if (players.size() > 0) {
+            Player player = players.get(currentBusName).getPlayer();
+            if (player != null)
+                player.Play();
+        }
     }
 
     protected static void pause() {
-        Player player = getPlayerObject();
-        if (player != null)
-            player.PlayPause();
+        if (players.size() > 0) {
+            Player player = players.get(currentBusName).getPlayer();
+            if (player != null)
+                player.Pause();
+        }
     }
 
     protected static void next() {
-        Player player = getPlayerObject();
-        if (player != null)
-            player.Next();
+        if (players.size() > 0) {
+            Player player = players.get(currentBusName).getPlayer();
+            if (player != null)
+                player.Next();
+        }
     }
 
     protected static void previous() {
-        Player player = getPlayerObject();
-        if (player != null)
-            player.Previous();
+        if (players.size() > 0) {
+            Player player = players.get(currentBusName).getPlayer();
+            if (player != null)
+                player.Previous();
+        }
     }
 
     private static class NameOwnerChangedHandler implements DBusSigHandler<DBus.NameOwnerChanged> {

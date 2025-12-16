@@ -21,11 +21,16 @@ public class PlayerInfo {
     private long positionMs, lengthMs;
     private double rate;
 
+    private Player player;
     private String busName;
     private Thread positionTimer;
     private boolean positionReset = false;
     private AutoCloseable propertiesHandler, seekedHandler;
     private static Object positionResetLock = new Object(), positionUpdateLock = new Object();
+
+    public Player getPlayer() {
+        return player;
+    }
 
     public String getBusName() {
         return busName;
@@ -119,6 +124,7 @@ public class PlayerInfo {
             propertiesHandler = MprisCustomHud.conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
             // listen for progress jumps for the current track
             seekedHandler = MprisCustomHud.conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
+            player = MprisCustomHud.conn.getRemoteObject(busName, "/org/mpris/MediaPlayer2", Player.class);
             positionTimer.start();
             if (existing) {
                 refreshValues();
