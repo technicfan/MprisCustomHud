@@ -126,10 +126,9 @@ public class PlayerInfo {
             positionTimer.setName("Track progress timer for " + busName);
             player = MprisCustomHud.conn.getRemoteObject(busName, "/org/mpris/MediaPlayer2", Player.class);
             // listen for music Properties (like metadata, shuffle status, ...)
-            propertiesHandler = MprisCustomHud.conn.addSigHandler(PropertiesChanged.class, player,
-                    new PropChangedHandler());
+            propertiesHandler = MprisCustomHud.conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
             // listen for progress jumps for the current track
-            seekedHandler = MprisCustomHud.conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
+            seekedHandler = MprisCustomHud.conn.addSigHandler(Player.Seeked.class, player, new SeekedHandler());
             positionTimer.start();
             if (existing) {
                 refreshValues();
@@ -203,16 +202,16 @@ public class PlayerInfo {
                 }
             }
         }
-        if (data.get("Identity") != null) {
+        if (data.containsKey("Identity")) {
             name = (String) data.get("Identity").getValue();
         }
-        if (data.get("LoopStatus") != null) {
+        if (data.containsKey("LoopStatus")) {
             loop = (String) data.get("LoopStatus").getValue();
         }
-        if (data.get("Shuffle") != null) {
+        if (data.containsKey("Shuffle")) {
             shuffle = (boolean) data.get("Shuffle").getValue();
         }
-        if (data.get("Rate") != null) {
+        if (data.containsKey("Rate")) {
             rate = (double) data.get("Rate").getValue();
             if (!playing && tempPlaying && rate > 0.0) {
                 playing = true;
@@ -220,7 +219,7 @@ public class PlayerInfo {
                     positionTimer.interrupt();
             }
         }
-        if (data.get("PlaybackStatus") != null) {
+        if (data.containsKey("PlaybackStatus")) {
             if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
                 resetPlayerValues();
                 return;
@@ -230,7 +229,7 @@ public class PlayerInfo {
             if (!init && playing)
                 positionTimer.interrupt();
         }
-        if (data.get("Metadata") != null) {
+        if (data.containsKey("Metadata")) {
             Map<?, ?> newMetadata = (Map<?, ?>) data
                     .get("Metadata")
                     .getValue();
@@ -240,7 +239,7 @@ public class PlayerInfo {
             }
             updateMetadata(metadata);
         }
-        if (init && data.get("Position") != null) {
+        if (init && data.containsKey("Position")) {
             long positionLong = (long) data.get("Position").getValue();
             updatePosition(positionLong / microToMs, true);
         }
