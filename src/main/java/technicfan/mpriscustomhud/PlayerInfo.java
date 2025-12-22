@@ -16,7 +16,7 @@ import org.freedesktop.dbus.types.Variant;
 
 public class PlayerInfo {
     private final static long microToMs = 1000L, positionUpdateTime = 100L;
-    private String track, trackId, album, progress, duration, loop, artist, artists;
+    private String name, track, trackId, album, progress, duration, loop, artist, artists;
     private boolean shuffle, playing, tempPlaying, existing, running = true;
     private long positionMs, lengthMs;
     private double rate;
@@ -34,6 +34,10 @@ public class PlayerInfo {
 
     public String getBusName() {
         return busName;
+    }
+
+    public String getName() {
+        return name;
     }
 
     public String getTrack() {
@@ -120,11 +124,12 @@ public class PlayerInfo {
                 }
             });
             positionTimer.setName("Track progress timer for " + busName);
+            player = MprisCustomHud.conn.getRemoteObject(busName, "/org/mpris/MediaPlayer2", Player.class);
             // listen for music Properties (like metadata, shuffle status, ...)
-            propertiesHandler = MprisCustomHud.conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
+            propertiesHandler = MprisCustomHud.conn.addSigHandler(PropertiesChanged.class, player,
+                    new PropChangedHandler());
             // listen for progress jumps for the current track
             seekedHandler = MprisCustomHud.conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
-            player = MprisCustomHud.conn.getRemoteObject(busName, "/org/mpris/MediaPlayer2", Player.class);
             positionTimer.start();
             if (existing) {
                 refreshValues();
@@ -146,7 +151,12 @@ public class PlayerInfo {
         resetValues();
     }
 
-    protected void resetValues() {
+    private void resetValues() {
+        name = "";
+        resetPlayerValues();
+    }
+
+    private void resetPlayerValues() {
         track = "";
         trackId = "";
         album = "";
@@ -165,7 +175,37 @@ public class PlayerInfo {
         MprisCustomHud.updateMaps(this);
     }
 
-    private void updateData(Map<String, Variant<?>> data, boolean init) {
+    private void updateData(Map<String, Variant<?>> data, List<String> removed, boolean init) {
+        if (removed != null) {
+            for (String property : removed) {
+                switch (property) {
+                    case "Identity":
+                        name = "";
+                    case "LoopStatus":
+                        loop = "";
+                    case "Shuffle":
+                        shuffle = false;
+                    case "Rate":
+                        rate = 1.0;
+                    case "PlaybackStatus": {
+                        playing = false;
+                        tempPlaying = false;
+                    }
+                    case "Metadata": {
+                        track = "";
+                        trackId = "";
+                        album = "";
+                        duration = "";
+                        artist = "";
+                        artists = "";
+                        lengthMs = 0;
+                    }
+                }
+            }
+        }
+        if (data.get("Identity") != null) {
+            name = (String) data.get("Identity").getValue();
+        }
         if (data.get("LoopStatus") != null) {
             loop = (String) data.get("LoopStatus").getValue();
         }
@@ -182,7 +222,7 @@ public class PlayerInfo {
         }
         if (data.get("PlaybackStatus") != null) {
             if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                resetValues();
+                resetPlayerValues();
                 return;
             }
             tempPlaying = data.get("PlaybackStatus").getValue().toString().equals("Playing");
@@ -278,10 +318,11 @@ public class PlayerInfo {
         try {
             if (Arrays.asList(MprisCustomHud.dbus.ListNames()).contains(busName)) {
                 synchronized (MprisCustomHud.conn) {
-                    Map<String, Variant<?>> data = MprisCustomHud.conn
-                            .getRemoteObject(busName, "/org/mpris/MediaPlayer2", Properties.class)
-                            .GetAll("org.mpris.MediaPlayer2.Player");
-                    updateData(data, true);
+                    Properties properties = MprisCustomHud.conn
+                            .getRemoteObject(busName, "/org/mpris/MediaPlayer2", Properties.class);
+                    Map<String, Variant<?>> data = properties.GetAll("org.mpris.MediaPlayer2.Player");
+                    data.putAll(properties.GetAll("org.mpris.MediaPlayer2"));
+                    updateData(data, null, true);
                 }
             }
         } catch (DBusException e) {
@@ -315,7 +356,7 @@ public class PlayerInfo {
                 if (MprisCustomHud.dbus.GetNameOwner(busName).equals(signal.getSource())) {
                     if (existing) {
                         Map<String, Variant<?>> changed = signal.getPropertiesChanged();
-                        updateData(changed, false);
+                        updateData(changed, signal.getPropertiesRemoved(), false);
                     } else {
                         refreshValues();
                         existing = true;
