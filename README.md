@@ -1,6 +1,10 @@
 # MprisCustomHud
 
-## Linux only and depends on [CustomHud](https://modrinth.com/mod/customhud)
+## Important
+
+- Linux only and depends on [CustomHud](https://modrinth.com/mod/customhud)
+
+## Description
 
 Just what you might expect from the name: Variables for CustomHud to show currently playing music using the Mpris DBus Spec.
 <br>
@@ -38,6 +42,10 @@ You can also choose a mpris player if you only want to see that one with the `mp
 If you still want to see other players but prefer one of them, use `mpriscustomhud preferred <player>` so that one will always be shown if it's active.
 <br>
 With `mpriscustomhud player`, you get the currently active player, with `mpriscustomhud filter` and `mpriscustomhud preferred` the values for that and with `mpriscustomhud refresh`, you can refresh the variables.
+
+### Flatpak notice
+
+- when you're running Minecraft in a Flatpak sandbox, you have to add `org.mpris.MediaPlayer2.*` to the list of well known session bus names your launcher can talk to e.g. with [Flatseal](https://github.com/tchx84/flatseal)
 
 ### Problems/Todo
 
