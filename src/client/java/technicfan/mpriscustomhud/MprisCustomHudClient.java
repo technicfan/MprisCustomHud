@@ -1,9 +1,8 @@
 package technicfan.mpriscustomhud;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CompletableFuture;
 import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 
@@ -15,27 +14,29 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public class MprisCustomHudClient implements ClientModInitializer {
-    private final static String[] version = Minecraft.getInstance().getLaunchedVersion().split("\\.");
+    //? if <1.21.9 {
+    /*private static final String MOD_CATEGORY
+              = String.format("key.category.%s.%s", MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID);*/
+    //?} else
+    private static final KeyMapping.Category MOD_CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID));
 
     @Override
     public void onInitializeClient() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
                 ClientCommandManager.literal(MprisCustomHud.MOD_ID)
-                        .then(ClientCommandManager.literal("filter")
-                                .then(ClientCommandManager.argument("filter", StringArgumentType.string())
-                                        .suggests(new PlayerSuggestionProvider())
-                                        .executes(MprisCustomHudClient::updateFilter))
-                                .executes(MprisCustomHudClient::queryFilter))
                         .then(ClientCommandManager.literal("preferred")
                                 .then(ClientCommandManager.argument("preferred", StringArgumentType.string())
                                         .suggests(new PlayerSuggestionProvider())
                                         .executes(MprisCustomHudClient::updatePreferred))
                                 .executes(MprisCustomHudClient::queryPreferred))
+                        .then(ClientCommandManager.literal("onlyPreferred")
+                                .then(ClientCommandManager.argument("onlyPreferred", BoolArgumentType.bool())
+                                        .executes(MprisCustomHudClient::updateOnlyPreferred))
+                                .executes(MprisCustomHudClient::queryOnlyPreferred))
                         .then(ClientCommandManager.literal("player")
                                 .executes(MprisCustomHudClient::queryPlayer))
                         .then(ClientCommandManager.literal("cycle")
@@ -53,65 +54,31 @@ public class MprisCustomHudClient implements ClientModInitializer {
                         .then(ClientCommandManager.literal("previous")
                                 .executes(MprisCustomHudClient::previousPlayer))));
 
-        Object MOD_CATEGORY;
-        Class<?> categoryClass;
-        Constructor<KeyMapping> keybindingCtor;
-        KeyMapping playPauseBinding, nextBinding, prevBinding, refreshBinding, cycleBinding;
-        // Keybinding category with Keybinding.Category for Minecraft >= 1.21.9
-        if (version.length == 3 && Integer.parseInt(version[0]) >= 1 && Integer.parseInt(version[1]) >= 21
-                && Integer.parseInt(version[2]) >= 9) {
-            try {
-                MOD_CATEGORY = KeyMapping.Category.register(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID));
-                keybindingCtor = KeyMapping.class.getConstructor(String.class, InputConstants.Type.class, int.class,
-                        KeyMapping.Category.class);
-                categoryClass = KeyMapping.Category.class;
-            } catch (NoClassDefFoundError | NoSuchMethodException | NoSuchMethodError e) {
-                MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
-                return;
-            }
-            // Keybinding category with String for Minecraft < 1.21.9
-        } else {
-            try {
-                MOD_CATEGORY = "key.category.mpriscustomhud.mpriscustomhud";
-                keybindingCtor = KeyMapping.class.getConstructor(String.class, InputConstants.Type.class, int.class,
-                        String.class);
-                categoryClass = String.class;
-            } catch (NoSuchMethodException | NoSuchMethodError e) {
-                MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
-                return;
-            }
-        }
-
-        try {
-            playPauseBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
-                    "mpriscustomhud.key.playpause",
-                    InputConstants.Type.KEYSYM,
-                    InputConstants.UNKNOWN.getValue(),
-                    categoryClass.cast(MOD_CATEGORY)));
-            nextBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
-                    "mpriscustomhud.key.next",
-                    InputConstants.Type.KEYSYM,
-                    InputConstants.UNKNOWN.getValue(),
-                    categoryClass.cast(MOD_CATEGORY)));
-            prevBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
-                    "mpriscustomhud.key.prev",
-                    InputConstants.Type.KEYSYM,
-                    InputConstants.UNKNOWN.getValue(),
-                    categoryClass.cast(MOD_CATEGORY)));
-            refreshBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
-                    "mpriscustomhud.key.refresh",
-                    InputConstants.Type.KEYSYM,
-                    InputConstants.UNKNOWN.getValue(),
-                    categoryClass.cast(MOD_CATEGORY)));
-            cycleBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
-                    "mpriscustomhud.key.cycle",
-                    InputConstants.Type.KEYSYM,
-                    InputConstants.UNKNOWN.getValue(),
-                    categoryClass.cast(MOD_CATEGORY)));
-        } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
-            MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
-            return;
-        }
+        KeyMapping playPauseBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "mpriscustomhud.key.playpause",
+                InputConstants.Type.KEYSYM,
+                InputConstants.UNKNOWN.getValue(),
+                MOD_CATEGORY));
+        KeyMapping nextBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "mpriscustomhud.key.next",
+                InputConstants.Type.KEYSYM,
+                InputConstants.UNKNOWN.getValue(),
+                MOD_CATEGORY));
+        KeyMapping prevBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "mpriscustomhud.key.prev",
+                InputConstants.Type.KEYSYM,
+                InputConstants.UNKNOWN.getValue(),
+                MOD_CATEGORY));
+        KeyMapping refreshBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "mpriscustomhud.key.refresh",
+                InputConstants.Type.KEYSYM,
+                InputConstants.UNKNOWN.getValue(),
+                MOD_CATEGORY));
+        KeyMapping cycleBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "mpriscustomhud.key.cycle",
+                InputConstants.Type.KEYSYM,
+                InputConstants.UNKNOWN.getValue(),
+                MOD_CATEGORY));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (playPauseBinding.consumeClick()) {
@@ -164,18 +131,11 @@ public class MprisCustomHudClient implements ClientModInitializer {
         return 1;
     }
 
-    private static int updateFilter(CommandContext<FabricClientCommandSource> commandContext) {
+    private static int updateOnlyPreferred(CommandContext<FabricClientCommandSource> commandContext) {
         CompletableFuture.runAsync(() -> {
-            MprisCustomHud.setFilter(StringArgumentType.getString(commandContext, "filter"));
-            commandContext.getSource()
-                    .sendFeedback(Component.translatable("mpriscustomhud.command.new_filter", MprisCustomHud.getFilter()));
+            MprisCustomHud.setOnlyPreferred(BoolArgumentType.getBool(commandContext, "onlyPreferred"));
+            queryOnlyPreferred(commandContext);
         });
-        return 1;
-    }
-
-    private static int queryFilter(CommandContext<FabricClientCommandSource> commandContext) {
-        commandContext.getSource()
-                .sendFeedback(Component.translatable("mpriscustomhud.command.current_filter", MprisCustomHud.getFilter()));
         return 1;
     }
 
@@ -186,6 +146,15 @@ public class MprisCustomHudClient implements ClientModInitializer {
                     .sendFeedback(
                             Component.translatable("mpriscustomhud.command.new_preferred", MprisCustomHud.getPreferred()));
         });
+        return 1;
+    }
+
+    private static int queryOnlyPreferred(CommandContext<FabricClientCommandSource> commandContext)  {
+        if (MprisCustomHud.getOnlyPreferred()) {
+            commandContext.getSource().sendFeedback(Component.translatable("mpriscustomhud.command.only_preferred.true"));
+        } else {
+            commandContext.getSource().sendFeedback(Component.translatable("mpriscustomhud.command.only_preferred.false"));
+        }
         return 1;
     }
 

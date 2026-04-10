@@ -11,5 +11,7 @@
     "mpriscustomhud.command.new_preferred": "The new preferred player is: %1$s",
     "mpriscustomhud.command.current_player": "The current player is: %1$s",
     "mpriscustomhud.command.current_filter": "The current filter is: %1$s",
-    "mpriscustomhud.command.current_preferred": "The current preferred player is: %1$s"
+    "mpriscustomhud.command.current_preferred": "The current preferred player is: %1$s",
+    "mpriscustomhud.command.only_preferred.true": "onlyPreferred ist active",
+    "mpriscustomhud.command.only_preferred.false": "onlyPreferred ist inactive"
 }

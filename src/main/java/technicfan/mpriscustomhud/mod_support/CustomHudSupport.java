@@ -1,5 +1,7 @@
 package technicfan.mpriscustomhud.mod_support;
 
+//? if <=1.21.10 {
+/*
 import static com.minenash.customhud.data.Flags.wrap;
 import static com.minenash.customhud.registry.CustomHudRegistry.registerElement;
 
@@ -11,8 +13,12 @@ import com.minenash.customhud.HudElements.supplier.NumberSupplierElement;
 import com.minenash.customhud.HudElements.supplier.StringSupplierElement;
 
 import technicfan.mpriscustomhud.MprisCustomHud;
+*/
+//?}
 
 public class CustomHudSupport {
+    //? if <=1.21.10 {
+    /*
     public static void register(
         ConcurrentHashMap<String, String> stringmap,
         ConcurrentHashMap<String, Boolean> boolmap,
@@ -21,9 +27,10 @@ public class CustomHudSupport {
     ) {
         for (String key : stringmap.keySet()) {
             registerElement(key,
-                    (f, c) -> wrap(
-                            new StringSupplierElement(() -> stringmap.get(key).isEmpty() ? null : stringmap.get(key)),
-                            f));
+                (f, c) -> wrap(new StringSupplierElement(() -> {
+                    String value = stringmap.get(key);
+                    return value.isEmpty() ? null : value;
+                }), f));
         }
 
         for (String key : boolmap.keySet()) {
@@ -46,10 +53,23 @@ public class CustomHudSupport {
 
         registerElement("mpris_progress", (f, c) -> {
             if (f.formatted) {
-                return new StringSupplierElement(() -> MprisCustomHud.formatMicro(MprisCustomHud.getCurrentPosition()));
+                return new StringSupplierElement(() -> {
+                    return MprisCustomHud.formatMicro(MprisCustomHud.getCurrentProgress());
+                });
             } else {
-                return new NumberSupplierElement(() -> MprisCustomHud.getCurrentPosition(), f);
+                return new NumberSupplierElement(() -> MprisCustomHud.getCurrentProgress(), f);
+            }
+        });
+        registerElement("mpris_data_age", (f, c) -> {
+            if (f.formatted) {
+                return new StringSupplierElement(() -> {
+                    return MprisCustomHud.formatMicro(MprisCustomHud.getCurrentDataAge());
+                });
+            } else {
+                return new NumberSupplierElement(() -> MprisCustomHud.getCurrentDataAge(), f);
             }
         });
     }
+    */
+    //?}
 }

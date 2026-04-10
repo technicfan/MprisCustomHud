@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version "${loom_version}"
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
 version = project.mod_version
@@ -35,21 +35,17 @@ dependencies {
     include "com.github.hypfvieh:dbus-java-core:${project.dbus_version}"
     include "com.github.hypfvieh:dbus-java-transport-native-unixsocket:${project.dbus_version}"
 
-	mappings loom.officialMojangMappings() 
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    if (sc.current.parsed.matches('<=1.21.10')) {
-        modImplementation "maven.modrinth:customhud:${project.customhud_version}"
-    }
-    if (sc.current.parsed.matches('>=1.21.9')) {
-        modImplementation "maven.modrinth:hudder:${project.hudder_version}"
-    }
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    implementation "maven.modrinth:hudder:${project.hudder_version}"
 }
 
 stonecutter {
-    replacements.string(sc.current.parsed.matches('<=1.21.10')) {
-       replace "Identifier", "ResourceLocation"
+    replacements.string(true) {
+       replace "KeyBinding", "KeyMapping"
+       replace "keybinding.v1", "keymapping.v1"
+       replace "ClientCommandManager", "ClientCommands"
     }
 }
 
@@ -66,7 +62,7 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 17
+	it.options.release = 25
 }
 
 java {
@@ -75,8 +71,8 @@ java {
 	// If you remove this line, sources will not be generated.
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
 }
 
 jar {

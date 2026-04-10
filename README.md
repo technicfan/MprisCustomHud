@@ -14,20 +14,61 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 
 ### Variables
 
-| Name             |  Type   | Description                                                                      |
-| :--------------- | :-----: | :------------------------------------------------------------------------------- |
-| `mpris_track`    | String  | currently playing track name                                                     |
-| `mpris_track_id` | String  | the unique mpris track id (mostly for debugging)                                 |
-| `mpris_album`    | String  | name of the album the track is from                                              |
-| `mpris_loop`     | String  | loop status - "None", "Track" or "Playlist"                                      |
-| `mpris_artist`   | String  | name of the first artist coming from mpris                                       |
-| `mpris_artists`  | String  | comma seperated list of artists                                                  |
-| `mpris_player`   | String  | the pretty player name from the `Identity` attribute of `org.mpris.MediaPlayer2` |
-| `mpris_shuffle`  | Boolean | wether shuffle is on                                                             |
-| `mpris_playing`  | Boolean | wether the song is playing or paused/stopped                                     |
-| `mpris_progress` | Special | progress in (HH:)?MM:SS format, number of seconds, progress > 0                  |
-| `mpris_duration` | Special | duration of the track in (HH:)?MM:SS format, number of seconds, duration > 0     |
-| `mpris_rate`     | Special | the rate/speed the music is playing at, rate as floating point number, rate > 0  |
+All String variables are either not empty or `null`
+
+| Name             |               Type               | Description                                                                                            |
+| :--------------- | :------------------------------: | :----------------------------------------------------------------------------------------------------- |
+| `mpris_track`    |              String              | currently playing track name                                                                           |
+| `mpris_trackid`  |              String              | the unique mpris track id (mostly for debugging)                                                       |
+| `mpris_album`    |              String              | name of the album the track is from                                                                    |
+| `mpris_repeat`   |              String              | repeat status - "None", "Track" or "Playlist"                                                          |
+| `mpris_artist`   |              String              | name of the first artist coming from mpris                                                             |
+| `mpris_artists`  | String/List\<String\> for Hudder | (comma seperated) list of artists                                                                      |
+| `mpris_player`   |              String              | the pretty player name from the `Identity` attribute of `org.mpris.MediaPlayer2`                       |
+| `mpris_shuffle`  |             Boolean              | wether shuffle is on                                                                                   |
+| `mpris_playing`  |             Boolean              | wether the song is playing or paused/stopped                                                           |
+| `mpris_data_age` |              Number              | the age of the metadata information (track, trackid, album, artist, artists, duration) in milliseconds |
+| `mpris_progress` |              Number              | progress in milliseconds                                                                               |
+| `mpris_duration` |              Number              | duration of the track in milliseconds                                                                  |
+| `mpris_rate`     |              Number              | the rate/speed the music is playing as floating point number                                           |
+
+### Hudder exclusive things
+
+#### Variables
+
+| Name                |       Type        | Description                                            |
+| :------------------ | :---------------: | :----------------------------------------------------- |
+| `has_mpris`         |      Boolean      | always true                                            |
+| `mpris_player_info` | Object/PlayerInfo | the PlayerInfo object of the currently selected player |
+
+#### Functions
+
+| Name            |   Arguments   | Returns                                                                           |
+| :-------------- | :-----------: | :-------------------------------------------------------------------------------- |
+| `getPlayerInfo` | `String name` | the PlayerInfo object with the bus name `org.mpris.MediaPlayer2.<name>` or `null` |
+
+#### Objects
+
+**PlayerInfo**:
+
+- `String busname` - the busname
+- `String name` - player name
+- `String repeat` - repeat status - see `mpris_repeat`
+- `boolean shuffle` - shuffle status
+- `boolean playing` - wether music is playing
+- `double rate` - the rate the music is playing at
+- `Metadata metadata` - metadata
+- `long progress()` - returns the current progress (in ms)
+
+**Metadata**:
+
+- `String track` - current track
+- `String trackid` - current track id
+- `String album` - current album
+- `String artist` - first artist
+- `List<String> artists` - all artists
+- `long duration` - duration of current track (in ms)
+- `long data_age()` - returns the age of the object (in ms)
 
 ### Controls
 

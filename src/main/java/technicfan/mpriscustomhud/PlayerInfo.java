@@ -14,69 +14,22 @@ import org.freedesktop.dbus.types.Variant;
 
 public class PlayerInfo {
     private final static long microToMs = 1000L;
-    private final String name, loop;
-    private final boolean shuffle, playing, existing;
+    public final String name, repeat;
+    public final boolean shuffle, playing;
+    private final boolean existing;
     private final long startPosition, startTime;
-    private final double rate;
-    private final Metadata metadata;
+    public final double rate;
+    public final Metadata metadata;
 
     private final Player player;
-    private final String busName;
+    public final String busname;
 
-    public Player getPlayer() {
+    protected Player getPlayer() {
         return player;
     }
 
-    public String getBusName() {
-        return busName;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getTrack() {
-        return metadata.track;
-    }
-
-    public String getTrackId() {
-        return metadata.trackId;
-    }
-
-    public String getAlbum() {
-        return metadata.album;
-    }
-
-    public String getLoop() {
-        return loop;
-    }
-
-    public String getArtist() {
-        return metadata.artist;
-    }
-
-    public List<String> getArtists() {
-        return metadata.artists;
-    }
-
-    public boolean getShuffle() {
-        return shuffle;
-    }
-
-    public boolean getPlaying() {
-        return playing;
-    }
-
-    public long getPosition() {
+    public long progress() {
         return playing ? currentPosition() : startPosition;
-    }
-
-    public long getDuration() {
-        return metadata.duration;
-    }
-
-    public double getRate() {
-        return rate;
     }
 
     private PlayerInfo(
@@ -92,9 +45,9 @@ public class PlayerInfo {
         Player player,
         Metadata metadata
     ) {
-        this.busName = busName;
+        this.busname = busName;
         this.name = name;
-        this.loop = loop;
+        this.repeat = loop;
         this.shuffle = shuffle;
         this.playing = playing;
         this.existing = existing;
@@ -105,22 +58,8 @@ public class PlayerInfo {
         this.metadata = metadata;
     }
 
-    PlayerInfo(String name) {
-        this.busName = name;
-        this.name = "";
-        this.loop = "";
-        this.shuffle = false;
-        this.playing = false;
-        this.existing = false;
-        this.startPosition = 0;
-        this.startTime = System.currentTimeMillis();
-        this.rate = 1.0;
-        this.player = null;
-        this.metadata = new Metadata();
-    }
-
-    protected static PlayerInfo of(String name) {
-        return new PlayerInfo(name, "", "", false, false, false, 0, 0, 0, null, new Metadata());
+    protected static PlayerInfo empty() {
+        return new PlayerInfo("", "", "", false, false, false, 0, 0, 0, null, new Metadata());
     }
 
     private static PlayerInfo of(String name, Player player) {
@@ -143,7 +82,7 @@ public class PlayerInfo {
     }
 
     private PlayerInfo updateData(Map<String, Variant<?>> data, List<String> removed, boolean init) {
-        String name = this.name, loop = this.loop;
+        String name = this.name, loop = this.repeat;
         boolean playing = this.playing, shuffle = this.shuffle, existing = true;
         long startPosition = this.startPosition, startTime = this.startTime;
         double rate = this.rate;
@@ -185,7 +124,7 @@ public class PlayerInfo {
         }
         if (data.containsKey("PlaybackStatus")) {
             if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                return of(busName, player);
+                return of(busname, player);
             }
             boolean tempPlaying = data.get("PlaybackStatus").getValue().toString().equals("Playing");
             if (!playing && tempPlaying) {
@@ -209,14 +148,14 @@ public class PlayerInfo {
             long positionLong = (long) data.get("Position").getValue();
             startTime = System.currentTimeMillis();
             startPosition = positionLong / microToMs;
-        } else if (!this.metadata.trackId.equals(metadata.trackId)) {
+        } else if (!this.metadata.trackid.equals(metadata.trackid)) {
             // needed as the Seeked signal doesn't have to be
             // emitted when tracks change
             startTime = System.currentTimeMillis();
             startPosition = 0;
         }
 
-        return new PlayerInfo(busName, name, loop, shuffle, playing, existing, startPosition, startTime, rate, player, metadata);
+        return new PlayerInfo(busname, name, loop, shuffle, playing, existing, startPosition, startTime, rate, player, metadata);
     }
 
     private long currentPosition() {
@@ -225,10 +164,10 @@ public class PlayerInfo {
 
     protected PlayerInfo refresh() {
         try {
-            if (Arrays.asList(MprisCustomHud.dbus.ListNames()).contains(busName)) {
+            if (Arrays.asList(MprisCustomHud.dbus.ListNames()).contains(busname)) {
                 synchronized (MprisCustomHud.conn) {
                     Properties properties = MprisCustomHud.conn
-                            .getRemoteObject(busName, "/org/mpris/MediaPlayer2", Properties.class);
+                            .getRemoteObject(busname, "/org/mpris/MediaPlayer2", Properties.class);
                     Map<String, Variant<?>> data = properties.GetAll("org.mpris.MediaPlayer2.Player");
                     data.putAll(properties.GetAll("org.mpris.MediaPlayer2"));
                     return updateData(data, null, true);
@@ -237,11 +176,11 @@ public class PlayerInfo {
         } catch (DBusException e) {
             MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
         }
-        return new PlayerInfo(busName);
+        return empty();
     }
 
     protected PlayerInfo seeked(Player.Seeked signal) {
-        return new PlayerInfo(busName, name, loop, shuffle, playing, existing, signal.getPosition() / microToMs, System.currentTimeMillis(), rate, player, metadata);
+        return new PlayerInfo(busname, name, repeat, shuffle, playing, existing, signal.getPosition() / microToMs, System.currentTimeMillis(), rate, player, metadata);
     }
 
     protected PlayerInfo propertiesChanged(PropertiesChanged signal) {
@@ -253,18 +192,25 @@ public class PlayerInfo {
         }
     }
 
-    private static class Metadata {
-        final String track, trackId, album, artist;
-        final List<String> artists;
-        final long duration;
+    public static class Metadata {
+        public final String track, trackid, album, artist;
+        public final List<String> artists;
+        public final long duration;
+        private final long creationTime;
+
+        @Override
+        public String toString() {
+            return String.format("{track: %s, trackid: %s, album: %s, artist: %s, artists: %s, duration: %s}", track, trackid, album, artist, artists, duration);
+        }
 
         Metadata() {
             track = "";
-            trackId = "";
+            trackid = "";
             album = "";
             artist = "";
             artists = List.of();
             duration = 0;
+            creationTime = System.currentTimeMillis();
         }
 
         Metadata(Map<String, ?> metadata) {
@@ -301,15 +247,25 @@ public class PlayerInfo {
                 track = "";
             }
             if (trackIdObj != null && trackIdObj instanceof String) {
-                trackId = (String) trackIdObj;
+                trackid = (String) trackIdObj;
             } else {
-                trackId = "";
+                trackid = "";
             }
             if (albumObj != null && albumObj instanceof String) {
                 album = (String) albumObj;
             } else {
                 album = "";
             }
+            creationTime = System.currentTimeMillis();
         }
+
+        public long data_age() {
+            return System.currentTimeMillis() - creationTime;
+        }
+    }
+
+    @Override
+    public String toString() {
+        return String.format("{busname: %s, name: %s, repeat: %s, shuffle: %s, playing: %s, rate: %s, metadata: %s}", busname, name, repeat, shuffle, playing, rate, metadata);
     }
 }
