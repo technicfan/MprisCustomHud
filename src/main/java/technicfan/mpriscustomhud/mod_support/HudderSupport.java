@@ -5,15 +5,15 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 //? if >=1.21.11 {
+/*
 import dev.ngspace.hudder.api.functionsandconsumers.FunctionAndConsumerAPI;
 import dev.ngspace.hudder.api.variableregistry.DataVariableRegistry;
 import dev.ngspace.hudder.api.variableregistry.VariableTypes;
+*/
 //?} else {
-/*
 import io.github.ngspace.hudder.compilers.utils.functionandconsumerapi.FunctionAndConsumerAPI;
 import io.github.ngspace.hudder.data_management.api.DataVariableRegistry;
 import io.github.ngspace.hudder.data_management.api.VariableTypes;
-*/
 //?}
 import technicfan.mpriscustomhud.MprisCustomHud;
 //?}

@@ -2,9 +2,7 @@ package technicfan.mpriscustomhud;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
-//? if <=1.21.10 {
-/*import technicfan.mpriscustomhud.mod_support.CustomHudSupport;*/
-//?}
+import technicfan.mpriscustomhud.mod_support.CustomHudSupport;
 import technicfan.mpriscustomhud.mod_support.HudderSupport;
 
 import java.io.File;
@@ -202,10 +200,8 @@ public class MprisCustomHud implements ModInitializer {
                 updateMaps(emptyPlayerInfo);
             }
             //? if <=1.21.10 {
-            /*
             if (FabricLoader.getInstance().getModContainer("custom_hud").isPresent())
                 CustomHudSupport.register(stringmap, boolmap, numbermap, listmap);
-            */
             //?}
             //? if >=1.21.9 {
             if (FabricLoader.getInstance().getModContainer("hudder").isPresent())

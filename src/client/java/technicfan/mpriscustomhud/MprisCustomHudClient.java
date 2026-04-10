@@ -15,14 +15,14 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 public class MprisCustomHudClient implements ClientModInitializer {
     //? if <1.21.9 {
     /*private static final String MOD_CATEGORY
               = String.format("key.category.%s.%s", MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID);*/
     //?} else
-    private static final KeyMapping.Category MOD_CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID));
+    private static final KeyMapping.Category MOD_CATEGORY = KeyMapping.Category.register(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID));
 
     @Override
     public void onInitializeClient() {

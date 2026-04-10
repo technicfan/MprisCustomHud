@@ -48,8 +48,8 @@ dependencies {
 }
 
 stonecutter {
-    replacements.string(sc.current.parsed.matches('<=1.21.10')) {
-       replace "Identifier", "ResourceLocation"
+    replacements.string(sc.current.parsed.matches('>=1.21.11')) {
+       replace "ResourceLocation", "Identifier"
     }
 }
 

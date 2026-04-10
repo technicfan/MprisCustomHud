@@ -43,6 +43,7 @@ dependencies {
 
 stonecutter {
     replacements.string(true) {
+       replace "ResourceLocation", "Identifier"
        replace "KeyBinding", "KeyMapping"
        replace "keybinding.v1", "keymapping.v1"
        replace "ClientCommandManager", "ClientCommands"

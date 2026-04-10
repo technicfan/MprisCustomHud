@@ -1,7 +1,6 @@
 package technicfan.mpriscustomhud.mod_support;
 
 //? if <=1.21.10 {
-/*
 import static com.minenash.customhud.data.Flags.wrap;
 import static com.minenash.customhud.registry.CustomHudRegistry.registerElement;
 
@@ -13,12 +12,10 @@ import com.minenash.customhud.HudElements.supplier.NumberSupplierElement;
 import com.minenash.customhud.HudElements.supplier.StringSupplierElement;
 
 import technicfan.mpriscustomhud.MprisCustomHud;
-*/
 //?}
 
 public class CustomHudSupport {
     //? if <=1.21.10 {
-    /*
     public static void register(
         ConcurrentHashMap<String, String> stringmap,
         ConcurrentHashMap<String, Boolean> boolmap,
@@ -70,6 +67,5 @@ public class CustomHudSupport {
             }
         });
     }
-    */
     //?}
 }
