@@ -1,32 +1,27 @@
 package technicfan.mpriscustomhud;
 
 import java.util.List;
-import java.util.ArrayList;
+
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.freedesktop.dbus.exceptions.DBusException;
-import org.freedesktop.dbus.handlers.AbstractPropertiesChangedHandler;
-import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.freedesktop.dbus.interfaces.Properties;
 import org.freedesktop.dbus.interfaces.Properties.PropertiesChanged;
 import org.freedesktop.dbus.types.UInt64;
 import org.freedesktop.dbus.types.Variant;
 
 public class PlayerInfo {
-    private final static long microToMs = 1000L, positionUpdateTime = 100L;
-    private String name, track, trackId, album, progress, duration, loop, artist, artists;
-    private boolean shuffle, playing, tempPlaying, existing, running = true;
-    private long positionMs, lengthMs;
-    private double rate;
+    private final static long microToMs = 1000L;
+    private final String name, loop;
+    private final boolean shuffle, playing, existing;
+    private final long startPosition, startTime;
+    private final double rate;
+    private final Metadata metadata;
 
-    private Player player;
-    private String busName;
-    private Thread positionTimer;
-    private boolean positionReset = false;
-    private AutoCloseable propertiesHandler, seekedHandler;
-    private static Object positionResetLock = new Object(), positionUpdateLock = new Object();
+    private final Player player;
+    private final String busName;
 
     public Player getPlayer() {
         return player;
@@ -41,23 +36,15 @@ public class PlayerInfo {
     }
 
     public String getTrack() {
-        return track;
+        return metadata.track;
     }
 
     public String getTrackId() {
-        return trackId;
+        return metadata.trackId;
     }
 
     public String getAlbum() {
-        return album;
-    }
-
-    public String getProgress() {
-        return progress;
-    }
-
-    public String getDuration() {
-        return duration;
+        return metadata.album;
     }
 
     public String getLoop() {
@@ -65,11 +52,11 @@ public class PlayerInfo {
     }
 
     public String getArtist() {
-        return artist;
+        return metadata.artist;
     }
 
-    public String getArtists() {
-        return artists;
+    public List<String> getArtists() {
+        return metadata.artists;
     }
 
     public boolean getShuffle() {
@@ -80,101 +67,88 @@ public class PlayerInfo {
         return playing;
     }
 
-    public long getPositionMs() {
-        return positionMs;
+    public long getPosition() {
+        return playing ? currentPosition() : startPosition;
     }
 
-    public long getLengthMs() {
-        return lengthMs;
+    public long getDuration() {
+        return metadata.duration;
     }
 
     public double getRate() {
         return rate;
     }
 
-    PlayerInfo(String name) {
-        busName = name;
-        resetValues();
+    private PlayerInfo(
+        String busName,
+        String name,
+        String loop,
+        boolean shuffle,
+        boolean playing,
+        boolean existing,
+        long startPosition,
+        long startTime,
+        double rate,
+        Player player,
+        Metadata metadata
+    ) {
+        this.busName = busName;
+        this.name = name;
+        this.loop = loop;
+        this.shuffle = shuffle;
+        this.playing = playing;
+        this.existing = existing;
+        this.startPosition = startPosition;
+        this.startTime = startTime;
+        this.rate = rate;
+        this.player = player;
+        this.metadata = metadata;
     }
 
-    PlayerInfo(String name, boolean existing) {
-        busName = name;
-        this.existing = existing;
-        resetValues();
+    PlayerInfo(String name) {
+        this.busName = name;
+        this.name = "";
+        this.loop = "";
+        this.shuffle = false;
+        this.playing = false;
+        this.existing = false;
+        this.startPosition = 0;
+        this.startTime = System.currentTimeMillis();
+        this.rate = 1.0;
+        this.player = null;
+        this.metadata = new Metadata();
+    }
 
+    protected static PlayerInfo of(String name) {
+        return new PlayerInfo(name, "", "", false, false, false, 0, 0, 0, null, new Metadata());
+    }
+
+    private static PlayerInfo of(String name, Player player) {
+        return new PlayerInfo(name, "", "", false, false, false, 0, 0, 0, player, new Metadata());
+    }
+
+    protected static PlayerInfo of(String name, boolean existing) {
+        Player player;
         try {
-            positionTimer = new Thread(() -> {
-                while (running) {
-                    try {
-                        long loopStart = System.currentTimeMillis();
-                        Thread.sleep(positionUpdateTime);
-                        if (playing) {
-                            if (positionMs < lengthMs) {
-                                updatePosition(positionMs + (long) ((System.currentTimeMillis() - loopStart) * rate),
-                                        false);
-                            }
-                        } else {
-                            synchronized (positionUpdateLock) {
-                                positionUpdateLock.wait();
-                            }
-                        }
-                    } catch (InterruptedException e) {
-                        continue;
-                    }
-                }
-            });
-            positionTimer.setName("Track progress timer for " + busName);
-            player = MprisCustomHud.conn.getRemoteObject(busName, "/org/mpris/MediaPlayer2", Player.class);
-            // listen for music Properties (like metadata, shuffle status, ...)
-            propertiesHandler = MprisCustomHud.conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
-            // listen for progress jumps for the current track
-            seekedHandler = MprisCustomHud.conn.addSigHandler(Player.Seeked.class, player, new SeekedHandler());
-            positionTimer.start();
-            if (existing) {
-                refreshValues();
-            }
+            player = MprisCustomHud.conn.getRemoteObject(name, "/org/mpris/MediaPlayer2", Player.class);
         } catch (DBusException e) {
             MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
+            player = null;
+        }
+        if (existing) {
+            return of(name, player).refresh();
+        } else {
+            return of(name, player);
         }
     }
 
-    protected void close() {
-        running = false;
-        positionTimer.interrupt();
-        try {
-            propertiesHandler.close();
-            seekedHandler.close();
-        } catch (Exception e) {
-            MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
-        }
-        resetValues();
-    }
-
-    private void resetValues() {
-        name = "";
-        resetPlayerValues();
-    }
-
-    private void resetPlayerValues() {
-        track = "";
-        trackId = "";
-        album = "";
-        progress = "";
-        duration = "";
-        loop = "";
-        artist = "";
-        artists = "";
-        shuffle = false;
-        playing = false;
-        tempPlaying = false;
-        positionMs = 0;
-        lengthMs = 0;
-        rate = 1.0;
-
-        MprisCustomHud.updateMaps(this);
-    }
-
-    private void updateData(Map<String, Variant<?>> data, List<String> removed, boolean init) {
+    private PlayerInfo updateData(Map<String, Variant<?>> data, List<String> removed, boolean init) {
+        String name = this.name, loop = this.loop;
+        boolean playing = this.playing, shuffle = this.shuffle, existing = true;
+        long startPosition = this.startPosition, startTime = this.startTime;
+        double rate = this.rate;
+        Metadata metadata = this.metadata;
+        Player player = this.player;
         if (removed != null) {
             for (String property : removed) {
                 switch (property) {
@@ -188,16 +162,9 @@ public class PlayerInfo {
                         rate = 1.0;
                     case "PlaybackStatus": {
                         playing = false;
-                        tempPlaying = false;
                     }
                     case "Metadata": {
-                        track = "";
-                        trackId = "";
-                        album = "";
-                        duration = "";
-                        artist = "";
-                        artists = "";
-                        lengthMs = 0;
+                        metadata = new Metadata();
                     }
                 }
             }
@@ -212,108 +179,51 @@ public class PlayerInfo {
             shuffle = (boolean) data.get("Shuffle").getValue();
         }
         if (data.containsKey("Rate")) {
+            startPosition = currentPosition();
+            startTime = System.currentTimeMillis();
             rate = (double) data.get("Rate").getValue();
-            if (!playing && tempPlaying && rate > 0.0) {
-                playing = true;
-                if (!init)
-                    positionTimer.interrupt();
-            }
         }
         if (data.containsKey("PlaybackStatus")) {
             if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                resetPlayerValues();
-                return;
+                return of(busName, player);
             }
-            tempPlaying = data.get("PlaybackStatus").getValue().toString().equals("Playing");
-            playing = tempPlaying && rate > 0.0;
-            if (!init && playing)
-                positionTimer.interrupt();
+            boolean tempPlaying = data.get("PlaybackStatus").getValue().toString().equals("Playing");
+            if (!playing && tempPlaying) {
+                startTime = System.currentTimeMillis();
+            } else if (playing && !tempPlaying) {
+                startPosition = currentPosition();
+            }
+            playing = tempPlaying;
         }
         if (data.containsKey("Metadata")) {
             Map<?, ?> newMetadata = (Map<?, ?>) data
                     .get("Metadata")
                     .getValue();
-            Map<String, Object> metadata = new HashMap<>();
+            Map<String, Object> metaData = new HashMap<>();
             for (Map.Entry<?, ?> entry : newMetadata.entrySet()) {
-                metadata.put((String) entry.getKey(), ((Variant<?>) entry.getValue()).getValue());
+                metaData.put((String) entry.getKey(), ((Variant<?>) entry.getValue()).getValue());
             }
-            updateMetadata(metadata);
+            metadata = new Metadata(metaData);
         }
         if (init && data.containsKey("Position")) {
             long positionLong = (long) data.get("Position").getValue();
-            updatePosition(positionLong / microToMs, true);
-        }
-
-        MprisCustomHud.updateMaps(this);
-    }
-
-    private void updateMetadata(Map<String, ?> metadata) {
-        String tempId = trackId;
-        Object lengthObj, trackObj, trackIdObj, albumObj, artistsObj;
-        lengthObj = metadata.get("mpris:length");
-        trackIdObj = metadata.get("mpris:trackid");
-        artistsObj = metadata.get("xesam:artist");
-        trackObj = metadata.get("xesam:title");
-        albumObj = metadata.get("xesam:album");
-        if (lengthObj != null) {
-            if (lengthObj instanceof UInt64) {
-                lengthMs = ((UInt64) lengthObj).longValue() / microToMs;
-            } else {
-                lengthMs = (long) lengthObj / microToMs;
-            }
-            long length = lengthMs / microToMs;
-            duration = String.format("%s%02d:%02d", length / 3600 > 0 ? String.format("%02d:", length / 3600) : "",
-                    length / 60 % 60, length % 60);
-        } else {
-            lengthMs = 0;
-            duration = "";
-        }
-        if (artistsObj != null && artistsObj instanceof List) {
-            List<?> tempList = (List<?>) artistsObj;
-            List<String> list = new ArrayList<>();
-            for (Object name : tempList) {
-                list.add((String) name);
-            }
-            artist = list.isEmpty() ? "" : list.get(0);
-            artists = String.join(", ", list);
-        } else {
-            artist = "";
-            artists = "";
-        }
-        if (trackObj != null && trackObj instanceof String) {
-            track = (String) trackObj;
-        } else {
-            track = "";
-        }
-        if (trackIdObj != null && trackIdObj instanceof String) {
-            trackId = (String) trackIdObj;
-        } else {
-            trackId = "";
-        }
-        if (albumObj != null && albumObj instanceof String) {
-            album = (String) albumObj;
-        } else {
-            album = "";
-        }
-        if (!trackId.equals(tempId)) {
+            startTime = System.currentTimeMillis();
+            startPosition = positionLong / microToMs;
+        } else if (!this.metadata.trackId.equals(metadata.trackId)) {
             // needed as the Seeked signal doesn't have to be
             // emitted when tracks change
-            updatePosition(0, true);
+            startTime = System.currentTimeMillis();
+            startPosition = 0;
         }
+
+        return new PlayerInfo(busName, name, loop, shuffle, playing, existing, startPosition, startTime, rate, player, metadata);
     }
 
-    private void updatePosition(long newPosition, boolean restart) {
-        positionMs = newPosition;
-        if (restart) {
-            positionTimer.interrupt();
-        }
-        long position = positionMs / microToMs;
-        progress = String.format("%s%02d:%02d", position / 3600 > 0 ? String.format("%02d:", position / 3600) : "",
-                position / 60 % 60, position % 60);
-        MprisCustomHud.updatePostionMap(busName, progress, position);
+    private long currentPosition() {
+        return startPosition + (long) ((System.currentTimeMillis() - startTime) * rate);
     }
 
-    protected void refreshValues() {
+    protected PlayerInfo refresh() {
         try {
             if (Arrays.asList(MprisCustomHud.dbus.ListNames()).contains(busName)) {
                 synchronized (MprisCustomHud.conn) {
@@ -321,48 +231,84 @@ public class PlayerInfo {
                             .getRemoteObject(busName, "/org/mpris/MediaPlayer2", Properties.class);
                     Map<String, Variant<?>> data = properties.GetAll("org.mpris.MediaPlayer2.Player");
                     data.putAll(properties.GetAll("org.mpris.MediaPlayer2"));
-                    updateData(data, null, true);
+                    return updateData(data, null, true);
                 }
             }
         } catch (DBusException e) {
             MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
         }
+        return new PlayerInfo(busName);
     }
 
-    private class SeekedHandler implements DBusSigHandler<Player.Seeked> {
-        public void handle(Player.Seeked signal) {
-            synchronized (positionResetLock) {
-                // check if signal came from the currently selected player
-                if (MprisCustomHud.dbus.GetNameOwner(busName).equals(signal.getSource())) {
-                    if (positionReset) {
-                        try {
-                            positionResetLock.wait();
-                        } catch (InterruptedException e) {
-                        }
-                    }
-                    updatePosition(signal.getPosition() / microToMs, true);
-                }
-            }
+    protected PlayerInfo seeked(Player.Seeked signal) {
+        return new PlayerInfo(busName, name, loop, shuffle, playing, existing, signal.getPosition() / microToMs, System.currentTimeMillis(), rate, player, metadata);
+    }
+
+    protected PlayerInfo propertiesChanged(PropertiesChanged signal) {
+        if (existing) {
+            Map<String, Variant<?>> changed = signal.getPropertiesChanged();
+            return updateData(changed, signal.getPropertiesRemoved(), false);
+        } else {
+            return refresh();
         }
     }
 
-    private class PropChangedHandler extends AbstractPropertiesChangedHandler {
-        @Override
-        public void handle(PropertiesChanged signal) {
-            synchronized (positionResetLock) {
-                positionReset = true;
-                // check if signal came from the currently selected player
-                if (MprisCustomHud.dbus.GetNameOwner(busName).equals(signal.getSource())) {
-                    if (existing) {
-                        Map<String, Variant<?>> changed = signal.getPropertiesChanged();
-                        updateData(changed, signal.getPropertiesRemoved(), false);
-                    } else {
-                        refreshValues();
-                        existing = true;
-                    }
+    private static class Metadata {
+        final String track, trackId, album, artist;
+        final List<String> artists;
+        final long duration;
+
+        Metadata() {
+            track = "";
+            trackId = "";
+            album = "";
+            artist = "";
+            artists = List.of();
+            duration = 0;
+        }
+
+        Metadata(Map<String, ?> metadata) {
+            Object lengthObj, trackObj, trackIdObj, albumObj, artistsObj;
+            lengthObj = metadata.get("mpris:length");
+            trackIdObj = metadata.get("mpris:trackid");
+            artistsObj = metadata.get("xesam:artist");
+            trackObj = metadata.get("xesam:title");
+            albumObj = metadata.get("xesam:album");
+            if (lengthObj != null) {
+                if (lengthObj instanceof UInt64) {
+                    duration = ((UInt64) lengthObj).longValue() / microToMs;
+                } else {
+                    duration = (long) lengthObj / microToMs;
                 }
-                positionReset = false;
-                positionResetLock.notify();
+            } else {
+                duration = 0;
+            }
+            if (artistsObj != null && artistsObj instanceof List) {
+                List<?> tempList = (List<?>) artistsObj;
+                String[] list = new String[tempList.size()];
+                for (int i = 0; i < tempList.size(); i++) {
+                    list[i] = (String) tempList.get(i);
+                }
+                artist = list.length == 0 ? "" : list[0];
+                artists = List.of(list);
+            } else {
+                artist = "";
+                artists = List.of();
+            }
+            if (trackObj != null && trackObj instanceof String) {
+                track = (String) trackObj;
+            } else {
+                track = "";
+            }
+            if (trackIdObj != null && trackIdObj instanceof String) {
+                trackId = (String) trackIdObj;
+            } else {
+                trackId = "";
+            }
+            if (albumObj != null && albumObj instanceof String) {
+                album = (String) albumObj;
+            } else {
+                album = "";
             }
         }
     }

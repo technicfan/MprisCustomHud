@@ -3,7 +3,7 @@ package technicfan.mpriscustomhud;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CompletableFuture;
-
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 
@@ -14,14 +14,13 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 public class MprisCustomHudClient implements ClientModInitializer {
-    private final static String[] version = MinecraftClient.getInstance().getGameVersion().split("\\.");
+    private final static String[] version = Minecraft.getInstance().getLaunchedVersion().split("\\.");
 
     @Override
     public void onInitializeClient() {
@@ -56,16 +55,16 @@ public class MprisCustomHudClient implements ClientModInitializer {
 
         Object MOD_CATEGORY;
         Class<?> categoryClass;
-        Constructor<KeyBinding> keybindingCtor;
-        KeyBinding playPauseBinding, nextBinding, prevBinding, refreshBinding, cycleBinding;
+        Constructor<KeyMapping> keybindingCtor;
+        KeyMapping playPauseBinding, nextBinding, prevBinding, refreshBinding, cycleBinding;
         // Keybinding category with Keybinding.Category for Minecraft >= 1.21.9
         if (version.length == 3 && Integer.parseInt(version[0]) >= 1 && Integer.parseInt(version[1]) >= 21
                 && Integer.parseInt(version[2]) >= 9) {
             try {
-                MOD_CATEGORY = KeyBinding.Category.create(Identifier.of(MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID));
-                keybindingCtor = KeyBinding.class.getConstructor(String.class, InputUtil.Type.class, int.class,
-                        KeyBinding.Category.class);
-                categoryClass = KeyBinding.Category.class;
+                MOD_CATEGORY = KeyMapping.Category.register(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID));
+                keybindingCtor = KeyMapping.class.getConstructor(String.class, InputConstants.Type.class, int.class,
+                        KeyMapping.Category.class);
+                categoryClass = KeyMapping.Category.class;
             } catch (NoClassDefFoundError | NoSuchMethodException | NoSuchMethodError e) {
                 MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
                 return;
@@ -74,7 +73,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
         } else {
             try {
                 MOD_CATEGORY = "key.category.mpriscustomhud.mpriscustomhud";
-                keybindingCtor = KeyBinding.class.getConstructor(String.class, InputUtil.Type.class, int.class,
+                keybindingCtor = KeyMapping.class.getConstructor(String.class, InputConstants.Type.class, int.class,
                         String.class);
                 categoryClass = String.class;
             } catch (NoSuchMethodException | NoSuchMethodError e) {
@@ -86,28 +85,28 @@ public class MprisCustomHudClient implements ClientModInitializer {
         try {
             playPauseBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
                     "mpriscustomhud.key.playpause",
-                    InputUtil.Type.KEYSYM,
-                    InputUtil.UNKNOWN_KEY.getCode(),
+                    InputConstants.Type.KEYSYM,
+                    InputConstants.UNKNOWN.getValue(),
                     categoryClass.cast(MOD_CATEGORY)));
             nextBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
                     "mpriscustomhud.key.next",
-                    InputUtil.Type.KEYSYM,
-                    InputUtil.UNKNOWN_KEY.getCode(),
+                    InputConstants.Type.KEYSYM,
+                    InputConstants.UNKNOWN.getValue(),
                     categoryClass.cast(MOD_CATEGORY)));
             prevBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
                     "mpriscustomhud.key.prev",
-                    InputUtil.Type.KEYSYM,
-                    InputUtil.UNKNOWN_KEY.getCode(),
+                    InputConstants.Type.KEYSYM,
+                    InputConstants.UNKNOWN.getValue(),
                     categoryClass.cast(MOD_CATEGORY)));
             refreshBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
                     "mpriscustomhud.key.refresh",
-                    InputUtil.Type.KEYSYM,
-                    InputUtil.UNKNOWN_KEY.getCode(),
+                    InputConstants.Type.KEYSYM,
+                    InputConstants.UNKNOWN.getValue(),
                     categoryClass.cast(MOD_CATEGORY)));
             cycleBinding = KeyBindingHelper.registerKeyBinding(keybindingCtor.newInstance(
                     "mpriscustomhud.key.cycle",
-                    InputUtil.Type.KEYSYM,
-                    InputUtil.UNKNOWN_KEY.getCode(),
+                    InputConstants.Type.KEYSYM,
+                    InputConstants.UNKNOWN.getValue(),
                     categoryClass.cast(MOD_CATEGORY)));
         } catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
             MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
@@ -115,27 +114,27 @@ public class MprisCustomHudClient implements ClientModInitializer {
         }
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (playPauseBinding.wasPressed()) {
+            if (playPauseBinding.consumeClick()) {
                 MprisCustomHud.playPause();
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (nextBinding.wasPressed()) {
+            if (nextBinding.consumeClick()) {
                 MprisCustomHud.next();
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (prevBinding.wasPressed()) {
+            if (prevBinding.consumeClick()) {
                 MprisCustomHud.previous();
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (refreshBinding.wasPressed()) {
+            if (refreshBinding.consumeClick()) {
                 MprisCustomHud.refresh();
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (cycleBinding.wasPressed()) {
+            if (cycleBinding.consumeClick()) {
                 MprisCustomHud.cyclePlayers();
             }
         });
@@ -154,7 +153,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
 
     private static int queryPlayer(CommandContext<FabricClientCommandSource> commandContext) {
         commandContext.getSource()
-                .sendFeedback(Text.translatable("mpriscustomhud.command.current_player", MprisCustomHud.getPlayer()));
+                .sendFeedback(Component.translatable("mpriscustomhud.command.current_player", MprisCustomHud.getPlayer()));
         return 1;
     }
 
@@ -169,14 +168,14 @@ public class MprisCustomHudClient implements ClientModInitializer {
         CompletableFuture.runAsync(() -> {
             MprisCustomHud.setFilter(StringArgumentType.getString(commandContext, "filter"));
             commandContext.getSource()
-                    .sendFeedback(Text.translatable("mpriscustomhud.command.new_filter", MprisCustomHud.getFilter()));
+                    .sendFeedback(Component.translatable("mpriscustomhud.command.new_filter", MprisCustomHud.getFilter()));
         });
         return 1;
     }
 
     private static int queryFilter(CommandContext<FabricClientCommandSource> commandContext) {
         commandContext.getSource()
-                .sendFeedback(Text.translatable("mpriscustomhud.command.current_filter", MprisCustomHud.getFilter()));
+                .sendFeedback(Component.translatable("mpriscustomhud.command.current_filter", MprisCustomHud.getFilter()));
         return 1;
     }
 
@@ -185,7 +184,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
             MprisCustomHud.setPreferred(StringArgumentType.getString(commandContext, "preferred"));
             commandContext.getSource()
                     .sendFeedback(
-                            Text.translatable("mpriscustomhud.command.new_preferred", MprisCustomHud.getPreferred()));
+                            Component.translatable("mpriscustomhud.command.new_preferred", MprisCustomHud.getPreferred()));
         });
         return 1;
     }
@@ -193,7 +192,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
     private static int queryPreferred(CommandContext<FabricClientCommandSource> commandContext) {
         commandContext.getSource()
                 .sendFeedback(
-                        Text.translatable("mpriscustomhud.command.current_preferred", MprisCustomHud.getPreferred()));
+                        Component.translatable("mpriscustomhud.command.current_preferred", MprisCustomHud.getPreferred()));
         return 1;
     }
 
