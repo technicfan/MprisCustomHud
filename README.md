@@ -2,13 +2,15 @@
 
 ## Important
 
-- Linux only and depends on [CustomHud](https://modrinth.com/mod/customhud)
+- Linux only and intended to be used with [CustomHud](https://modrinth.com/mod/customhud) or [Hudder](https://modrinth.com/mod/hudder)
 
 ## Description
 
-Just what you might expect from the name: Variables for CustomHud to show currently playing music using the Mpris DBus Spec.
+Just what you might expect from the name: Variables for CustomHud and Hudder! to show currently playing music using the Mpris DBus Spec.
 <br>
 Available for all versions CustomHud v4 is available for!
+<br>
+Works with Hudder 9.x on version 1.21.9/10 and 10.x for version 1.21.11/26.1.x
 <br>
 It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank you for your work [Lightningtow](https://github.com/Lightningtow) ig :)
 
@@ -76,13 +78,13 @@ There are keybindings for play/pause, next, previous, refresh and cycle through 
 
 ### Configuration
 
-By default a player is selected from the active ones. To cycle through the currently active ones, use the `mpriscustomhud cycle` command (only works if no filter is set).
+By default a player is selected from the active ones. To cycle through the currently active ones, use the `mpriscustomhud cycle` command (only works `onlyPreferred` is disabled (default)).
 <br>
-You can also choose a mpris player if you only want to see that one with the `mpriscustomhud filter <player>` command which will also suggest currently active ones.
+You can choose a player to prefer over others by using `mpriscustomhud preferred <player>` so that one will always be shown if it's active.
 <br>
-If you still want to see other players but prefer one of them, use `mpriscustomhud preferred <player>` so that one will always be shown if it's active.
+If you don't want to see other players (only the preferred one), you can use `mpriscustomhud onlyPreferred true`. This will result in no player being selected if you didn't set a preferred one.
 <br>
-With `mpriscustomhud player`, you get the currently active player, with `mpriscustomhud filter` and `mpriscustomhud preferred` the values for that and with `mpriscustomhud refresh`, you can refresh the variables.
+With `mpriscustomhud player`, you get the currently active player, with `mpriscustomhud onlyPreferred` and `mpriscustomhud preferred` the values for that and with `mpriscustomhud refresh`, you can refresh the variables.
 
 ### Flatpak notice
 
@@ -91,7 +93,6 @@ With `mpriscustomhud player`, you get the currently active player, with `mpriscu
 ### Problems/Todo
 
 - currently there is no album art variable; maybe I will try to add it at some point
-- ~~the `mpris_progress` variable is not a perfect representation of the actual progress, but should be good enough~~<br>(it's still not perfect, but much better)
 
 ### Libraries used
 
