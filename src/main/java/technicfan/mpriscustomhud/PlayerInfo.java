@@ -24,12 +24,33 @@ public class PlayerInfo {
     private final Player player;
     public final String busname;
 
-    protected Player getPlayer() {
-        return player;
-    }
-
     public long progress() {
         return playing ? currentPosition() : startPosition;
+    }
+
+    public void play() {
+        if (player != null)
+            player.Play();
+    }
+
+    public void pause() {
+        if (player != null)
+            player.Pause();
+    }
+
+    public void playpause() {
+        if (player != null)
+            player.PlayPause();
+    }
+
+    public void next() {
+        if (player != null)
+            player.Next();
+    }
+
+    public void previous() {
+        if (player != null)
+            player.Previous();
     }
 
     private PlayerInfo(

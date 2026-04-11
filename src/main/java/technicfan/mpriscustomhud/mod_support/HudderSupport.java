@@ -27,7 +27,10 @@ public class HudderSupport {
         HashMap<String, MprisCustomHud.Function<List<String>>> listmap
     ) {
         DataVariableRegistry.registerVariable(k -> true, VariableTypes.BOOLEAN, "has_mpris");
-        DataVariableRegistry.registerVariable(k -> MprisCustomHud.getCurrentPlayerInfo(), VariableTypes.OBJECT, "mpris_player_info");
+        DataVariableRegistry.registerVariable(k ->
+            MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? null : MprisCustomHud.getCurrentPlayerInfo(),
+                VariableTypes.OBJECT, "mpris_player_info");
+        DataVariableRegistry.registerVariable(k -> MprisCustomHud.getAvailablePlayers(), VariableTypes.OBJECT, "mpris_players");
 
         for (String key : stringmap.keySet()) {
             DataVariableRegistry.registerVariable(k -> {

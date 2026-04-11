@@ -13,9 +13,9 @@ public class PlayerSuggestionProvider implements SuggestionProvider<FabricClient
     public CompletableFuture<Suggestions> getSuggestions(CommandContext<FabricClientCommandSource> context, SuggestionsBuilder builder) {
         builder.suggest("None");
 
-        for (String name : MprisCustomHud.getActivePlayers()) {
-            builder.suggest(name.replace("org.mpris.MediaPlayer2.", ""));
-        }
+        MprisCustomHud.getAvailablePlayers().forEach(name -> {
+            builder.suggest(name);
+        });
 
         return builder.buildFuture();
     }

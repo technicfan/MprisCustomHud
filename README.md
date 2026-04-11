@@ -6,7 +6,7 @@
 
 ## Description
 
-Just what you might expect from the name: Variables for CustomHud and Hudder! to show currently playing music using the Mpris DBus Spec.
+Variables for CustomHud and Hudder to show currently playing music using the Mpris DBus Spec.
 <br>
 Available for all versions CustomHud v4 is available for!
 <br>
@@ -38,10 +38,11 @@ All String variables are either not empty or `null`
 
 #### Variables
 
-| Name                |       Type        | Description                                            |
-| :------------------ | :---------------: | :----------------------------------------------------- |
-| `has_mpris`         |      Boolean      | always true                                            |
-| `mpris_player_info` | Object/PlayerInfo | the PlayerInfo object of the currently selected player |
+| Name                |       Type        | Description                                                             |
+| :------------------ | :---------------: | :---------------------------------------------------------------------- |
+| `has_mpris`         |      Boolean      | always true                                                             |
+| `mpris_player_info` | Object/PlayerInfo | the PlayerInfo object of the currently selected player                  |
+| `mpris_players`     |  List\<String\>   | a list of currently tracked players that can be used in `getPlayerInfo` |
 
 #### Functions
 

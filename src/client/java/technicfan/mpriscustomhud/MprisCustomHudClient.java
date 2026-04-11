@@ -82,17 +82,17 @@ public class MprisCustomHudClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (playPauseBinding.consumeClick()) {
-                MprisCustomHud.playPause();
+                MprisCustomHud.getCurrentPlayerInfo().playpause();
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (nextBinding.consumeClick()) {
-                MprisCustomHud.next();
+                MprisCustomHud.getCurrentPlayerInfo().next();
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (prevBinding.consumeClick()) {
-                MprisCustomHud.previous();
+                MprisCustomHud.getCurrentPlayerInfo().previous();
             }
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -120,7 +120,7 @@ public class MprisCustomHudClient implements ClientModInitializer {
 
     private static int queryPlayer(CommandContext<FabricClientCommandSource> commandContext) {
         commandContext.getSource()
-                .sendFeedback(Component.translatable("mpriscustomhud.command.current_player", MprisCustomHud.getPlayer()));
+                .sendFeedback(Component.translatable("mpriscustomhud.command.current_player", MprisCustomHud.getCurrentPlayerName()));
         return 1;
     }
 
@@ -166,27 +166,27 @@ public class MprisCustomHudClient implements ClientModInitializer {
     }
 
     private static int playPausePlayer(CommandContext<FabricClientCommandSource> commandContext) {
-        MprisCustomHud.playPause();
+        MprisCustomHud.getCurrentPlayerInfo().playpause();
         return 1;
     }
 
     private static int playPlayer(CommandContext<FabricClientCommandSource> commandContext) {
-        MprisCustomHud.play();
+        MprisCustomHud.getCurrentPlayerInfo().play();
         return 1;
     }
 
     private static int pausePlayer(CommandContext<FabricClientCommandSource> commandContext) {
-        MprisCustomHud.pause();
+        MprisCustomHud.getCurrentPlayerInfo().pause();
         return 1;
     }
 
     private static int nextPlayer(CommandContext<FabricClientCommandSource> commandContext) {
-        MprisCustomHud.next();
+        MprisCustomHud.getCurrentPlayerInfo().next();
         return 1;
     }
 
     private static int previousPlayer(CommandContext<FabricClientCommandSource> commandContext) {
-        MprisCustomHud.previous();
+        MprisCustomHud.getCurrentPlayerInfo().previous();
         return 1;
     }
 }

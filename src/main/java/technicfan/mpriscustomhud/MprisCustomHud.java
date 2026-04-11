@@ -34,7 +34,7 @@ public class MprisCustomHud implements ModInitializer {
     private static Config CONFIG = new Config();
 
     private static final long microToMs = 1000L;
-    public static final String busPrefix = "org.mpris.MediaPlayer2.";
+    private static final String busPrefix = "org.mpris.MediaPlayer2.";
     private static final PlayerInfo emptyPlayerInfo = new PlayerInfo();
 
     protected static DBus dbus;
@@ -47,37 +47,50 @@ public class MprisCustomHud implements ModInitializer {
         T run();
     }
 
-    private static HashMap<String, Function<String>> getStringMap() {
-        HashMap<String, Function<String>> map = new HashMap<>();
-        map.put("mpris_player", () -> currentPlayerInfo.name);
-        map.put("mpris_track", () -> currentPlayerInfo.metadata.track);
-        map.put("mpris_trackid", () -> currentPlayerInfo.metadata.trackid);
-        map.put("mpris_album", () -> currentPlayerInfo.metadata.album);
-        map.put("mpris_repeat", () -> currentPlayerInfo.repeat);
-        map.put("mpris_artist", () -> currentPlayerInfo.metadata.artist);
-        return map;
-    }
+    @Override
+    public void onInitialize() {
+        loadConfig();
 
-    private static HashMap<String, Function<Boolean>> getBoolMap() {
-        HashMap<String, Function<Boolean>> map = new HashMap<>();
-        map.put("mpris_shuffle", () -> currentPlayerInfo.shuffle);
-        map.put("mpris_playing", () -> currentPlayerInfo.playing);
-        return map;
-    }
-
-    private static HashMap<String, Function<Number>> getNumberMap() {
-        HashMap<String, Function<Number>> map = new HashMap<>();
-        map.put("mpris_progress", () -> currentPlayerInfo.progress());
-        map.put("mpris_duration", () -> currentPlayerInfo.metadata.duration);
-        map.put("mpris_data_age", () -> currentPlayerInfo.isEmpty() ? 0 : currentPlayerInfo.metadata.data_age());
-        map.put("mpris_rate", () -> currentPlayerInfo.rate);
-        return map;
-    }
-
-    private static HashMap<String, Function<List<String>>> getListMap() {
-        HashMap<String, Function<List<String>>> map = new HashMap<>();
-        map.put("mpris_artists", () -> currentPlayerInfo.metadata.artists);
-        return map;
+        try {
+            conn = DBusConnectionBuilder.forSessionBus().build();
+            dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
+            for (String name : dbus.ListNames()) {
+                if (name.startsWith(busPrefix)) {
+                    if (name.equals(CONFIG.preferred)
+                            || (currentPlayerInfo.isEmpty() && !CONFIG.onlyPreferred)) {
+                        currentPlayerInfo = PlayerInfo.of(name, true);
+                        players.put(name, currentPlayerInfo);
+                    } else {
+                        players.put(name, PlayerInfo.of(name, true));
+                    }
+                }
+            }
+            HashMap<String, Function<String>> stringmap = getStringMap();
+            HashMap<String, Function<Boolean>> boolmap = getBoolMap();
+            HashMap<String, Function<Number>> numbermap = getNumberMap();
+            HashMap<String, Function<List<String>>> listmap = getListMap();
+            //? if <=1.21.10 {
+            if (FabricLoader.getInstance().getModContainer("custom_hud").isPresent()) {
+                CustomHudSupport.register(stringmap, boolmap, numbermap, listmap);
+                log("Registered CustomHud variables");
+            }
+            //?}
+            //? if >=1.21.9 {
+            if (FabricLoader.getInstance().getModContainer("hudder").isPresent()) {
+                HudderSupport.register(stringmap, boolmap, numbermap, listmap);
+                log("Registered Hudder variables and functions");
+            }
+            //?}
+            // listen for name owner changes to reset the values in case the player
+            // terminates
+            nameHandler = conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
+            // listen for music Properties (like metadata, shuffle status, ...)
+            propertiesHandler = conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
+            // listen for progress jumps for the current track
+            seekedHandler = conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
+        } catch (Exception e) {
+            LOGGER.error(e.toString(), e.fillInStackTrace());
+        }
     }
 
     public static PlayerInfo getPlayerInfo(String name) {
@@ -85,13 +98,17 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     public static PlayerInfo getCurrentPlayerInfo() {
-        return currentPlayerInfo.isEmpty() ? null : currentPlayerInfo;
+        return currentPlayerInfo;
     }
 
-    public static String formatMicro(Number micro) {
-        long ms = micro.longValue() / microToMs;
-        return String.format("%s%02d:%02d", ms / 3600 > 0 ? String.format("%02d:", ms / 3600) : "",
-                ms / 60 % 60, ms % 60);
+    public static List<String> getAvailablePlayers() {
+        return players.keySet().stream().map(s -> s.substring(23)).toList();
+    }
+
+    public static String formatMicro(Number ms) {
+        long sec = ms.longValue() / microToMs;
+        return String.format("%s%02d:%02d", sec / 3600 > 0 ? String.format("%02d:", sec / 3600) : "",
+                sec / 60 % 60, sec % 60);
     }
 
     protected static void setPreferred(String preferred) {
@@ -132,7 +149,7 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    protected static String getPlayer() {
+    protected static String getCurrentPlayerName() {
         return currentPlayerInfo.isEmpty() ? "None" : currentPlayerInfo.name;
     }
 
@@ -144,90 +161,9 @@ public class MprisCustomHud implements ModInitializer {
         return CONFIG.onlyPreferred;
     }
 
-    protected static List<String> getActivePlayers() {
-        List<String> players = new ArrayList<>();
-        if (dbus != null) {
-            for (String name : dbus.ListNames()) {
-                if (name.startsWith(busPrefix)) {
-                    players.add(name);
-                }
-            }
-        }
-        return players;
-    }
-
-    private static void loadConfig() {
-        if (CONFIG_FILE.exists()) {
-            try {
-                try (FileReader reader = new FileReader(CONFIG_FILE)) {
-                    CONFIG = new Gson().fromJson(reader, Config.class);
-                    LOGGER.info("MPRIS CustomHud config loaded");
-                }
-            } catch (IOException e) {
-                LOGGER.error(e.toString(), e.fillInStackTrace());
-            }
-        }
-    }
-
-    private static void saveConfig() {
-        Gson gson = new GsonBuilder().setPrettyPrinting().create();
-        try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
-            writer.write(gson.toJson(CONFIG));
-        } catch (IOException e) {
-            LOGGER.error(e.toString(), e.fillInStackTrace());
-        }
-    }
-
-    @Override
-    public void onInitialize() {
-        loadConfig();
-
-        try {
-            conn = DBusConnectionBuilder.forSessionBus().build();
-            dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
-            String currentBusName = null;
-            List<String> activePlayers = getActivePlayers();
-            if (!CONFIG.onlyPreferred && activePlayers.contains(CONFIG.preferred)) {
-                currentBusName = CONFIG.preferred;
-            }
-            for (String name : activePlayers) {
-                if (currentBusName == null && !CONFIG.onlyPreferred) {
-                    currentBusName = name;
-                }
-                if (name.equals(currentBusName)) {
-                    currentPlayerInfo = PlayerInfo.of(name, true);
-                    players.put(name, currentPlayerInfo);
-                } else {
-                    players.put(name, PlayerInfo.of(name, true));
-                }
-            }
-            HashMap<String, Function<String>> stringmap = getStringMap();
-            HashMap<String, Function<Boolean>> boolmap = getBoolMap();
-            HashMap<String, Function<Number>> numbermap = getNumberMap();
-            HashMap<String, Function<List<String>>> listmap = getListMap();
-            //? if <=1.21.10 {
-            if (FabricLoader.getInstance().getModContainer("custom_hud").isPresent())
-                CustomHudSupport.register(stringmap, boolmap, numbermap, listmap);
-            //?}
-            //? if >=1.21.9 {
-            if (FabricLoader.getInstance().getModContainer("hudder").isPresent())
-                HudderSupport.register(stringmap, boolmap, numbermap, listmap);
-            //?}
-            // listen for name owner changes to reset the values in case the player
-            // terminates
-            nameHandler = conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
-            // listen for music Properties (like metadata, shuffle status, ...)
-            propertiesHandler = conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
-            // listen for progress jumps for the current track
-            seekedHandler = conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
-        } catch (Exception e) {
-            LOGGER.error(e.toString(), e.fillInStackTrace());
-        }
-    }
-
     protected static void close() {
         try {
-            LOGGER.info("Closing DBus connection and signal listeners");
+            log("Closing DBus connection and signal listeners");
             if (nameHandler != null)
                 nameHandler.close();
             if (propertiesHandler != null)
@@ -258,44 +194,63 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    protected static void playPause() {
-        if (!currentPlayerInfo.isEmpty()) {
-            Player player = currentPlayerInfo.getPlayer();
-            if (player != null)
-                player.PlayPause();
+    private static void loadConfig() {
+        if (CONFIG_FILE.exists()) {
+            try {
+                try (FileReader reader = new FileReader(CONFIG_FILE)) {
+                    CONFIG = new Gson().fromJson(reader, Config.class);
+                    log("Loaded config");
+                }
+            } catch (IOException e) {
+                LOGGER.error(e.toString(), e.fillInStackTrace());
+            }
         }
     }
 
-    protected static void play() {
-        if (!currentPlayerInfo.isEmpty()) {
-            Player player = currentPlayerInfo.getPlayer();
-            if (player != null)
-                player.Play();
+    private static void saveConfig() {
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
+            writer.write(gson.toJson(CONFIG));
+        } catch (IOException e) {
+            LOGGER.error(e.toString(), e.fillInStackTrace());
         }
     }
 
-    protected static void pause() {
-        if (!currentPlayerInfo.isEmpty()) {
-            Player player = currentPlayerInfo.getPlayer();
-            if (player != null)
-                player.Pause();
-        }
+    private static void log(String msg) {
+        LOGGER.info("[MprisCustomHud] {}", msg);
     }
 
-    protected static void next() {
-        if (!currentPlayerInfo.isEmpty()) {
-            Player player = currentPlayerInfo.getPlayer();
-            if (player != null)
-                player.Next();
-        }
+    private static HashMap<String, Function<String>> getStringMap() {
+        HashMap<String, Function<String>> map = new HashMap<>();
+        map.put("mpris_player", () -> currentPlayerInfo.name);
+        map.put("mpris_track", () -> currentPlayerInfo.metadata.track);
+        map.put("mpris_trackid", () -> currentPlayerInfo.metadata.trackid);
+        map.put("mpris_album", () -> currentPlayerInfo.metadata.album);
+        map.put("mpris_repeat", () -> currentPlayerInfo.repeat);
+        map.put("mpris_artist", () -> currentPlayerInfo.metadata.artist);
+        return map;
     }
 
-    protected static void previous() {
-        if (!currentPlayerInfo.isEmpty()) {
-            Player player = currentPlayerInfo.getPlayer();
-            if (player != null)
-                player.Previous();
-        }
+    private static HashMap<String, Function<Boolean>> getBoolMap() {
+        HashMap<String, Function<Boolean>> map = new HashMap<>();
+        map.put("mpris_shuffle", () -> currentPlayerInfo.shuffle);
+        map.put("mpris_playing", () -> currentPlayerInfo.playing);
+        return map;
+    }
+
+    private static HashMap<String, Function<Number>> getNumberMap() {
+        HashMap<String, Function<Number>> map = new HashMap<>();
+        map.put("mpris_progress", () -> currentPlayerInfo.progress());
+        map.put("mpris_duration", () -> currentPlayerInfo.metadata.duration);
+        map.put("mpris_data_age", () -> currentPlayerInfo.isEmpty() ? 0 : currentPlayerInfo.metadata.data_age());
+        map.put("mpris_rate", () -> currentPlayerInfo.rate);
+        return map;
+    }
+
+    private static HashMap<String, Function<List<String>>> getListMap() {
+        HashMap<String, Function<List<String>>> map = new HashMap<>();
+        map.put("mpris_artists", () -> currentPlayerInfo.metadata.artists);
+        return map;
     }
 
     private static class NameOwnerChangedHandler implements DBusSigHandler<DBus.NameOwnerChanged> {
