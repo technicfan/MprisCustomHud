@@ -4,8 +4,8 @@ package technicfan.mpriscustomhud.mod_support;
 import static com.minenash.customhud.data.Flags.wrap;
 import static com.minenash.customhud.registry.CustomHudRegistry.registerElement;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 import com.minenash.customhud.HudElements.supplier.BooleanSupplierElement;
 import com.minenash.customhud.HudElements.supplier.NumberSupplierElement;
@@ -17,55 +17,36 @@ import technicfan.mpriscustomhud.MprisCustomHud;
 public class CustomHudSupport {
     //? if <=1.21.10 {
     public static void register(
-        ConcurrentHashMap<String, String> stringmap,
-        ConcurrentHashMap<String, Boolean> boolmap,
-        ConcurrentHashMap<String, Number> numbermap,
-        ConcurrentHashMap<String, List<String>> listmap
+        HashMap<String, MprisCustomHud.Function<String>> stringmap,
+        HashMap<String, MprisCustomHud.Function<Boolean>> boolmap,
+        HashMap<String, MprisCustomHud.Function<Number>> numbermap,
+        HashMap<String, MprisCustomHud.Function<List<String>>> listmap
     ) {
         for (String key : stringmap.keySet()) {
             registerElement(key,
                 (f, c) -> wrap(new StringSupplierElement(() -> {
-                    String value = stringmap.get(key);
+                    String value = stringmap.get(key).run();
                     return value.isEmpty() ? null : value;
                 }), f));
         }
 
         for (String key : boolmap.keySet()) {
-            registerElement(key, (f, c) -> wrap(new BooleanSupplierElement(() -> boolmap.get(key)), f));
+            registerElement(key, (f, c) -> wrap(new BooleanSupplierElement(() -> boolmap.get(key).run()), f));
         }
 
         for (String key : listmap.keySet()) {
-            registerElement(key, (f, c) -> wrap(new StringSupplierElement(() -> String.join(", ", listmap.get(key))), f));
+            registerElement(key, (f, c) -> wrap(new StringSupplierElement(() -> String.join(", ", listmap.get(key).run())), f));
         }
 
         for (String key : numbermap.keySet()) {
             registerElement(key, (f, c) -> {
                 if (f.formatted) {
-                    return new StringSupplierElement(() -> MprisCustomHud.formatMicro(numbermap.get(key)));
+                    return new StringSupplierElement(() -> MprisCustomHud.formatMicro(numbermap.get(key).run()));
                 } else {
-                    return new NumberSupplierElement(() -> numbermap.get(key), f);
+                    return new NumberSupplierElement(() -> numbermap.get(key).run(), f);
                 }
             });
         }
-
-        registerElement("mpris_progress", (f, c) -> {
-            if (f.formatted) {
-                return new StringSupplierElement(() -> {
-                    return MprisCustomHud.formatMicro(MprisCustomHud.getCurrentProgress());
-                });
-            } else {
-                return new NumberSupplierElement(() -> MprisCustomHud.getCurrentProgress(), f);
-            }
-        });
-        registerElement("mpris_data_age", (f, c) -> {
-            if (f.formatted) {
-                return new StringSupplierElement(() -> {
-                    return MprisCustomHud.formatMicro(MprisCustomHud.getCurrentDataAge());
-                });
-            } else {
-                return new NumberSupplierElement(() -> MprisCustomHud.getCurrentDataAge(), f);
-            }
-        });
     }
     //?}
 }

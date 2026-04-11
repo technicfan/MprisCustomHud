@@ -58,26 +58,26 @@ public class PlayerInfo {
         this.metadata = metadata;
     }
 
-    protected static PlayerInfo empty() {
-        return new PlayerInfo("", "", "", false, false, false, 0, 0, 0, null, new Metadata());
+    protected PlayerInfo() {
+        this("", "", "", false, false, false, 0, 0, 0, null, new Metadata());
     }
 
-    private static PlayerInfo of(String name, Player player) {
-        return new PlayerInfo(name, "", "", false, false, false, 0, 0, 0, player, new Metadata());
+    private PlayerInfo(String busname, Player player) {
+        this(busname, "", "", false, false, false, 0, 0, 0, player, new Metadata());
     }
 
-    protected static PlayerInfo of(String name, boolean existing) {
+    protected static PlayerInfo of(String busname, boolean existing) {
         Player player;
         try {
-            player = MprisCustomHud.conn.getRemoteObject(name, "/org/mpris/MediaPlayer2", Player.class);
+            player = MprisCustomHud.conn.getRemoteObject(busname, "/org/mpris/MediaPlayer2", Player.class);
         } catch (DBusException e) {
             MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
             player = null;
         }
         if (existing) {
-            return of(name, player).refresh();
+            return new PlayerInfo(busname, player).refresh();
         } else {
-            return of(name, player);
+            return new PlayerInfo(busname, player);
         }
     }
 
@@ -124,7 +124,7 @@ public class PlayerInfo {
         }
         if (data.containsKey("PlaybackStatus")) {
             if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
-                return of(busname, player);
+                return new PlayerInfo(busname, player);
             }
             boolean tempPlaying = data.get("PlaybackStatus").getValue().toString().equals("Playing");
             if (!playing && tempPlaying) {
@@ -176,7 +176,7 @@ public class PlayerInfo {
         } catch (DBusException e) {
             MprisCustomHud.LOGGER.error(e.toString(), e.fillInStackTrace());
         }
-        return empty();
+        return new PlayerInfo(busname, player);
     }
 
     protected PlayerInfo seeked(Player.Seeked signal) {
@@ -190,6 +190,10 @@ public class PlayerInfo {
         } else {
             return refresh();
         }
+    }
+
+    public boolean isEmpty() {
+        return busname.isEmpty();
     }
 
     public static class Metadata {

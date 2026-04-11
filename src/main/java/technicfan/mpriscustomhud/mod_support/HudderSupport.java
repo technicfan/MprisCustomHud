@@ -2,7 +2,7 @@ package technicfan.mpriscustomhud.mod_support;
 
 //? if >=1.21.9 {
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 //? if >=1.21.11 {
 /*
@@ -21,35 +21,32 @@ import technicfan.mpriscustomhud.MprisCustomHud;
 public class HudderSupport {
     //? if >=1.21.9 {
     public static void register(
-        ConcurrentHashMap<String, String> stringmap,
-        ConcurrentHashMap<String, Boolean> boolmap,
-        ConcurrentHashMap<String, Number> numbermap,
-        ConcurrentHashMap<String, List<String>> listmap
-    ){
+        HashMap<String, MprisCustomHud.Function<String>> stringmap,
+        HashMap<String, MprisCustomHud.Function<Boolean>> boolmap,
+        HashMap<String, MprisCustomHud.Function<Number>> numbermap,
+        HashMap<String, MprisCustomHud.Function<List<String>>> listmap
+    ) {
         DataVariableRegistry.registerVariable(k -> true, VariableTypes.BOOLEAN, "has_mpris");
         DataVariableRegistry.registerVariable(k -> MprisCustomHud.getCurrentPlayerInfo(), VariableTypes.OBJECT, "mpris_player_info");
 
         for (String key : stringmap.keySet()) {
             DataVariableRegistry.registerVariable(k -> {
-                String value = stringmap.get(key);
+                String value = stringmap.get(key).run();
                 return value.isEmpty() ? null : value;
             }, VariableTypes.STRING, key);
         }
 
         for (String key : boolmap.keySet()) {
-            DataVariableRegistry.registerVariable(k -> boolmap.get(key), VariableTypes.BOOLEAN, key);
+            DataVariableRegistry.registerVariable(k -> boolmap.get(key).run(), VariableTypes.BOOLEAN, key);
         }
 
         for (String key : listmap.keySet()) {
-            DataVariableRegistry.registerVariable(k -> listmap.get(key).toArray(), VariableTypes.OBJECT, key);
+            DataVariableRegistry.registerVariable(k -> listmap.get(key).run(), VariableTypes.OBJECT, key);
         }
 
         for (String key : numbermap.keySet()) {
-            DataVariableRegistry.registerVariable(k -> numbermap.get(key), VariableTypes.NUMBER, key);
+            DataVariableRegistry.registerVariable(k -> numbermap.get(key).run(), VariableTypes.NUMBER, key);
         }
-
-        DataVariableRegistry.registerVariable(k -> MprisCustomHud.getCurrentProgress(), VariableTypes.NUMBER, "mpris_progress");
-        DataVariableRegistry.registerVariable(k -> MprisCustomHud.getCurrentDataAge(), VariableTypes.NUMBER, "mpris_data_age");
 
         FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {
                 if (args.length < 1) {

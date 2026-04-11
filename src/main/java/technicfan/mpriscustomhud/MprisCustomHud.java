@@ -12,11 +12,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
-import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.handlers.AbstractPropertiesChangedHandler;
 import org.freedesktop.dbus.interfaces.DBus;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
@@ -37,34 +35,49 @@ public class MprisCustomHud implements ModInitializer {
 
     private static final long microToMs = 1000L;
     public static final String busPrefix = "org.mpris.MediaPlayer2.";
-    private static final PlayerInfo emptyPlayerInfo = PlayerInfo.empty();
-
-    private static ConcurrentHashMap<String, String> stringmap = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<String, Boolean> boolmap = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<String, Number> numbermap = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<String, List<String>> listmap = new ConcurrentHashMap<>();
+    private static final PlayerInfo emptyPlayerInfo = new PlayerInfo();
 
     protected static DBus dbus;
     protected static DBusConnection conn;
     private static AutoCloseable nameHandler, propertiesHandler, seekedHandler;
     private static HashMap<String, PlayerInfo> players = new HashMap<>();
-    private static String currentBusName;
+    private static PlayerInfo currentPlayerInfo = emptyPlayerInfo;
 
-    private static void updateMaps(PlayerInfo info) {
-        stringmap.put("mpris_player", info.name);
-        stringmap.put("mpris_track", info.metadata.track);
-        stringmap.put("mpris_trackid", info.metadata.trackid);
-        stringmap.put("mpris_album", info.metadata.album);
-        stringmap.put("mpris_repeat", info.repeat);
-        stringmap.put("mpris_artist", info.metadata.artist);
+    public static interface Function<T> {
+        T run();
+    }
 
-        boolmap.put("mpris_shuffle", info.shuffle);
-        boolmap.put("mpris_playing", info.playing);
+    private static HashMap<String, Function<String>> getStringMap() {
+        HashMap<String, Function<String>> map = new HashMap<>();
+        map.put("mpris_player", () -> currentPlayerInfo.name);
+        map.put("mpris_track", () -> currentPlayerInfo.metadata.track);
+        map.put("mpris_trackid", () -> currentPlayerInfo.metadata.trackid);
+        map.put("mpris_album", () -> currentPlayerInfo.metadata.album);
+        map.put("mpris_repeat", () -> currentPlayerInfo.repeat);
+        map.put("mpris_artist", () -> currentPlayerInfo.metadata.artist);
+        return map;
+    }
 
-        numbermap.put("mpris_duration", info.metadata.duration);
-        numbermap.put("mpris_rate", info.rate);
+    private static HashMap<String, Function<Boolean>> getBoolMap() {
+        HashMap<String, Function<Boolean>> map = new HashMap<>();
+        map.put("mpris_shuffle", () -> currentPlayerInfo.shuffle);
+        map.put("mpris_playing", () -> currentPlayerInfo.playing);
+        return map;
+    }
 
-        listmap.put("mpris_artists", info.metadata.artists);
+    private static HashMap<String, Function<Number>> getNumberMap() {
+        HashMap<String, Function<Number>> map = new HashMap<>();
+        map.put("mpris_progress", () -> currentPlayerInfo.progress());
+        map.put("mpris_duration", () -> currentPlayerInfo.metadata.duration);
+        map.put("mpris_data_age", () -> currentPlayerInfo.isEmpty() ? 0 : currentPlayerInfo.metadata.data_age());
+        map.put("mpris_rate", () -> currentPlayerInfo.rate);
+        return map;
+    }
+
+    private static HashMap<String, Function<List<String>>> getListMap() {
+        HashMap<String, Function<List<String>>> map = new HashMap<>();
+        map.put("mpris_artists", () -> currentPlayerInfo.metadata.artists);
+        return map;
     }
 
     public static PlayerInfo getPlayerInfo(String name) {
@@ -72,19 +85,7 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     public static PlayerInfo getCurrentPlayerInfo() {
-        return currentBusName != null ? players.get(currentBusName) : null;
-    }
-
-    public static long getCurrentProgress() {
-        return currentBusName != null ? players.get(currentBusName).progress() : 0;
-    }
-
-    public static long getCurrentDataAge() {
-        return currentBusName != null ? players.get(currentBusName).metadata.data_age() : 0;
-    }
-
-    public static boolean hasCurrentPlayerInfo() {
-        return currentBusName != null;
+        return currentPlayerInfo.isEmpty() ? null : currentPlayerInfo;
     }
 
     public static String formatMicro(Number micro) {
@@ -100,12 +101,14 @@ public class MprisCustomHud implements ModInitializer {
         if (!CONFIG.preferred.equals(busPrefix + preferred)) {
             CONFIG = CONFIG.setPreferred(busPrefix + preferred);
             if (players.containsKey(CONFIG.preferred)) {
-                currentBusName = CONFIG.preferred;
-                updateMaps(players.get(currentBusName));
-            } else if (!CONFIG.onlyPreferred && currentBusName == null) {
-                cyclePlayers();
+                currentPlayerInfo = players.get(CONFIG.preferred);
+            } else if (currentPlayerInfo.isEmpty()) {
+                if (!CONFIG.onlyPreferred)
+                    cyclePlayers();
             } else {
-                updateMaps(emptyPlayerInfo);
+                if (CONFIG.onlyPreferred) {
+                    currentPlayerInfo = emptyPlayerInfo;
+                }
             }
             saveConfig();
         }
@@ -114,14 +117,12 @@ public class MprisCustomHud implements ModInitializer {
     protected static void setOnlyPreferred(boolean onlyPreferred) {
         if (CONFIG.onlyPreferred != onlyPreferred) {
             CONFIG = CONFIG.setOnlyPreferred(onlyPreferred);
-            if (!CONFIG.preferred.equals(currentBusName)) {
+            if (!CONFIG.preferred.equals(currentPlayerInfo.busname)) {
                 if (players.containsKey(CONFIG.preferred)) {
-                    currentBusName = CONFIG.preferred;
-                    updateMaps(players.get(currentBusName));
+                    currentPlayerInfo = players.get(CONFIG.preferred);
                 } else {
                     if (CONFIG.onlyPreferred) {
-                        currentBusName = null;
-                        updateMaps(emptyPlayerInfo);
+                        currentPlayerInfo = emptyPlayerInfo;
                     } else {
                         cyclePlayers();
                     }
@@ -132,7 +133,7 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     protected static String getPlayer() {
-        return currentBusName == null ? "None" : players.get(currentBusName).name;
+        return currentPlayerInfo.isEmpty() ? "None" : currentPlayerInfo.name;
     }
 
     protected static String getPreferred() {
@@ -184,6 +185,7 @@ public class MprisCustomHud implements ModInitializer {
         try {
             conn = DBusConnectionBuilder.forSessionBus().build();
             dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
+            String currentBusName = null;
             List<String> activePlayers = getActivePlayers();
             if (!CONFIG.onlyPreferred && activePlayers.contains(CONFIG.preferred)) {
                 currentBusName = CONFIG.preferred;
@@ -192,13 +194,17 @@ public class MprisCustomHud implements ModInitializer {
                 if (currentBusName == null && !CONFIG.onlyPreferred) {
                     currentBusName = name;
                 }
-                players.put(name, PlayerInfo.of(name, true));
+                if (name.equals(currentBusName)) {
+                    currentPlayerInfo = PlayerInfo.of(name, true);
+                    players.put(name, currentPlayerInfo);
+                } else {
+                    players.put(name, PlayerInfo.of(name, true));
+                }
             }
-            if (currentBusName != null) {
-                updateMaps(players.get(currentBusName));
-            } else {
-                updateMaps(emptyPlayerInfo);
-            }
+            HashMap<String, Function<String>> stringmap = getStringMap();
+            HashMap<String, Function<Boolean>> boolmap = getBoolMap();
+            HashMap<String, Function<Number>> numbermap = getNumberMap();
+            HashMap<String, Function<List<String>>> listmap = getListMap();
             //? if <=1.21.10 {
             if (FabricLoader.getInstance().getModContainer("custom_hud").isPresent())
                 CustomHudSupport.register(stringmap, boolmap, numbermap, listmap);
@@ -214,7 +220,7 @@ public class MprisCustomHud implements ModInitializer {
             propertiesHandler = conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
             // listen for progress jumps for the current track
             seekedHandler = conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
-        } catch (DBusException e) {
+        } catch (Exception e) {
             LOGGER.error(e.toString(), e.fillInStackTrace());
         }
     }
@@ -236,59 +242,57 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     protected static void refresh() {
-        if (currentBusName != null) {
-            players.put(currentBusName, players.get(currentBusName).refresh());
-            updateMaps(players.get(currentBusName));
+        if (!currentPlayerInfo.isEmpty()) {
+            currentPlayerInfo = currentPlayerInfo.refresh();
+            players.put(currentPlayerInfo.busname, currentPlayerInfo);
         }
     }
 
     protected static void cyclePlayers() {
         if (players.size() > 0 && !CONFIG.onlyPreferred) {
             List<String> keys = new ArrayList<>(players.keySet());
-            int index = currentBusName != null ? keys.indexOf(currentBusName) : -1;
-            currentBusName = keys.get(index + 1 == keys.size() ? 0 : index + 1);
-            updateMaps(players.get(currentBusName));
+            int index = keys.indexOf(currentPlayerInfo.busname);
+            currentPlayerInfo = players.get(keys.get(index + 1 == keys.size() ? 0 : index + 1));
         } else {
-            currentBusName = null;
-            updateMaps(emptyPlayerInfo);
+            currentPlayerInfo = emptyPlayerInfo;
         }
     }
 
     protected static void playPause() {
-        if (currentBusName != null) {
-            Player player = players.get(currentBusName).getPlayer();
+        if (!currentPlayerInfo.isEmpty()) {
+            Player player = currentPlayerInfo.getPlayer();
             if (player != null)
                 player.PlayPause();
         }
     }
 
     protected static void play() {
-        if (currentBusName != null) {
-            Player player = players.get(currentBusName).getPlayer();
+        if (!currentPlayerInfo.isEmpty()) {
+            Player player = currentPlayerInfo.getPlayer();
             if (player != null)
                 player.Play();
         }
     }
 
     protected static void pause() {
-        if (currentBusName != null) {
-            Player player = players.get(currentBusName).getPlayer();
+        if (!currentPlayerInfo.isEmpty()) {
+            Player player = currentPlayerInfo.getPlayer();
             if (player != null)
                 player.Pause();
         }
     }
 
     protected static void next() {
-        if (currentBusName != null) {
-            Player player = players.get(currentBusName).getPlayer();
+        if (!currentPlayerInfo.isEmpty()) {
+            Player player = currentPlayerInfo.getPlayer();
             if (player != null)
                 player.Next();
         }
     }
 
     protected static void previous() {
-        if (currentBusName != null) {
-            Player player = players.get(currentBusName).getPlayer();
+        if (!currentPlayerInfo.isEmpty()) {
+            Player player = currentPlayerInfo.getPlayer();
             if (player != null)
                 player.Previous();
         }
@@ -299,29 +303,26 @@ public class MprisCustomHud implements ModInitializer {
         public void handle(DBus.NameOwnerChanged signal) {
             if (signal.newOwner.isEmpty() && !signal.oldOwner.isEmpty() && players.containsKey(signal.name)) {
                 players.remove(signal.name);
-                if (signal.name.equals(currentBusName)) {
+                if (signal.name.equals(currentPlayerInfo.busname)) {
                     if (!CONFIG.onlyPreferred) {
                         if (players.containsKey(CONFIG.preferred)) {
-                            currentBusName = CONFIG.preferred;
-                            updateMaps(players.get(currentBusName));
+                            currentPlayerInfo = players.get(CONFIG.preferred);
                         } else {
                             cyclePlayers();
                         }
                     } else {
-                        currentBusName = null;
-                        updateMaps(emptyPlayerInfo);
+                        currentPlayerInfo = emptyPlayerInfo;
                     }
                 }
             } else if (!signal.newOwner.isEmpty() && signal.oldOwner.isEmpty()
                     && signal.name.startsWith(busPrefix)) {
+                PlayerInfo player = PlayerInfo.of(signal.name, false);
+                players.put(signal.name, player);
                 if (signal.name.equals(CONFIG.preferred)) {
-                    currentBusName = signal.name;
+                    currentPlayerInfo = player;
                 }
-                players.put(signal.name, PlayerInfo.of(signal.name, false));
-                if (currentBusName == null) {
+                if (currentPlayerInfo.isEmpty() && !CONFIG.onlyPreferred) {
                     cyclePlayers();
-                } else if (currentBusName == signal.name) {
-                    updateMaps(players.get(currentBusName));
                 }
             }
         }
@@ -332,7 +333,12 @@ public class MprisCustomHud implements ModInitializer {
             for (String busName : players.keySet()) {
                 // check if signal came from the current player
                 if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
-                    players.put(busName, players.get(busName).seeked(signal));
+                    PlayerInfo player = players.get(busName).seeked(signal);
+                    players.put(busName, player);
+                    if (busName.equals(currentPlayerInfo.busname)) {
+                        currentPlayerInfo = player;
+                    }
+                    break;
                 }
             }
         }
@@ -344,10 +350,12 @@ public class MprisCustomHud implements ModInitializer {
             for (String busName : players.keySet()) {
                 // check if signal came from the current player
                 if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
-                    players.put(busName, players.get(busName).propertiesChanged(signal));
-                    if (busName.equals(currentBusName)) {
-                        updateMaps(players.get(busName));
+                    PlayerInfo player = players.get(busName).propertiesChanged(signal);
+                    players.put(busName, player);
+                    if (busName.equals(currentPlayerInfo.busname)) {
+                        currentPlayerInfo = player;
                     }
+                    break;
                 }
             }
         }
