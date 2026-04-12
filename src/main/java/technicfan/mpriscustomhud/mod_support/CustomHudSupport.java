@@ -1,27 +1,27 @@
 package technicfan.mpriscustomhud.mod_support;
 
+import java.util.HashMap;
+import java.util.List;
+
 //? if <=1.21.10 {
 import static com.minenash.customhud.data.Flags.wrap;
 import static com.minenash.customhud.registry.CustomHudRegistry.registerElement;
 
-import java.util.HashMap;
-import java.util.List;
-
 import com.minenash.customhud.HudElements.supplier.BooleanSupplierElement;
 import com.minenash.customhud.HudElements.supplier.NumberSupplierElement;
 import com.minenash.customhud.HudElements.supplier.StringSupplierElement;
-
-import technicfan.mpriscustomhud.MprisCustomHud;
 //?}
 
+import technicfan.mpriscustomhud.MprisCustomHud;
+
 public class CustomHudSupport {
-    //? if <=1.21.10 {
     public static void register(
         HashMap<String, MprisCustomHud.Function<String>> stringmap,
         HashMap<String, MprisCustomHud.Function<Boolean>> boolmap,
         HashMap<String, MprisCustomHud.Function<Number>> numbermap,
         HashMap<String, MprisCustomHud.Function<List<String>>> listmap
     ) {
+        //? if <=1.21.10 {
         for (String key : stringmap.keySet()) {
             registerElement(key,
                 (f, c) -> wrap(new StringSupplierElement(() -> {
@@ -47,6 +47,8 @@ public class CustomHudSupport {
                 }
             });
         }
+
+        MprisCustomHud.log("Registered CustomHud variables");
+        //?}
     }
-    //?}
 }

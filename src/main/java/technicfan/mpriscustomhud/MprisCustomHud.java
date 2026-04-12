@@ -2,8 +2,7 @@ package technicfan.mpriscustomhud;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
-import technicfan.mpriscustomhud.mod_support.CustomHudSupport;
-import technicfan.mpriscustomhud.mod_support.HudderSupport;
+import technicfan.mpriscustomhud.mod_support.ModSupport;
 
 import java.io.File;
 import java.io.FileReader;
@@ -65,22 +64,7 @@ public class MprisCustomHud implements ModInitializer {
                     }
                 }
             }
-            HashMap<String, Function<String>> stringmap = getStringMap();
-            HashMap<String, Function<Boolean>> boolmap = getBoolMap();
-            HashMap<String, Function<Number>> numbermap = getNumberMap();
-            HashMap<String, Function<List<String>>> listmap = getListMap();
-            //? if <=1.21.10 {
-            if (FabricLoader.getInstance().getModContainer("custom_hud").isPresent()) {
-                CustomHudSupport.register(stringmap, boolmap, numbermap, listmap);
-                log("Registered CustomHud variables");
-            }
-            //?}
-            //? if >=1.21.9 {
-            if (FabricLoader.getInstance().getModContainer("hudder").isPresent()) {
-                HudderSupport.register(stringmap, boolmap, numbermap, listmap);
-                log("Registered Hudder variables and functions");
-            }
-            //?}
+            ModSupport.register(getStringMap(), getBoolMap(), getNumberMap(), getListMap());
             // listen for name owner changes to reset the values in case the player
             // terminates
             nameHandler = conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
@@ -216,7 +200,7 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    private static void log(String msg) {
+    public static void log(String msg) {
         LOGGER.info("[MprisCustomHud] {}", msg);
     }
 

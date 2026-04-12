@@ -42,9 +42,7 @@ dependencies {
     if (sc.current.parsed.matches('<=1.21.10')) {
         modImplementation "maven.modrinth:customhud:${project.customhud_version}"
     }
-    if (sc.current.parsed.matches('>=1.21.9')) {
-        modImplementation "maven.modrinth:hudder:${project.hudder_version}"
-    }
+    modImplementation "maven.modrinth:hudder:${project.hudder_version}"
 }
 
 stonecutter {

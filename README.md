@@ -10,7 +10,7 @@ Variables for CustomHud and Hudder to show currently playing music using the Mpr
 <br>
 Available for all versions CustomHud v4 is available for!
 <br>
-Works with Hudder 9.x on version 1.21.9/10 and 10.x for version 1.21.11/26.1.x
+Works with Hudder 8.x, 9.x on version 1.21.9/10 and 10.x for version 1.21.11/26.1.x
 <br>
 It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank you for your work [Lightningtow](https://github.com/Lightningtow) ig :)
 
