@@ -16,7 +16,7 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 
 ### Variables
 
-All String variables are either not empty or `null`
+All String variables are either not empty or `null` (except for Hudder 8.x which does not allow `null` for variables)
 
 | Name             |               Type               | Description                                                                                            |
 | :--------------- | :------------------------------: | :----------------------------------------------------------------------------------------------------- |
