@@ -56,13 +56,14 @@ public class HudderSupport {
         /*
         ObjectDataAPI.addObjectGetter(k -> k.equals("has_mpris") ? true : null);
         ObjectDataAPI.addObjectGetter(k ->
-            k.equals("mpris_player_info") ? MprisCustomHud.getCurrentPlayerInfo() : null);
+            k.equals("mpris_player_info") && !MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? MprisCustomHud.getCurrentPlayerInfo() : null);
         ObjectDataAPI.addObjectGetter(k -> k.equals("mpris_players") ? MprisCustomHud.getAvailablePlayers() : null);
 
         for (String key : stringmap.keySet()) {
             ObjectDataAPI.addObjectGetter(k -> {
                 if (!k.equals(key)) return null;
-                return stringmap.get(key).run();
+                String value = stringmap.get(key).run();
+                return value.isEmpty() ? null : value;
             });
         }
 

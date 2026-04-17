@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
@@ -39,7 +40,7 @@ public class MprisCustomHud implements ModInitializer {
     protected static DBus dbus;
     protected static DBusConnection conn;
     private static AutoCloseable nameHandler, propertiesHandler, seekedHandler;
-    private static HashMap<String, PlayerInfo> players = new HashMap<>();
+    private static ConcurrentHashMap<String, PlayerInfo> players = new ConcurrentHashMap<>();
     private static PlayerInfo currentPlayerInfo = emptyPlayerInfo;
 
     public static interface Function<T> {
@@ -68,9 +69,9 @@ public class MprisCustomHud implements ModInitializer {
             // listen for name owner changes to reset the values in case the player
             // terminates
             nameHandler = conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
-            // listen for music Properties (like metadata, shuffle status, ...)
+            // listen for music Properties changess (like metadata, shuffle status, ...)
             propertiesHandler = conn.addSigHandler(PropertiesChanged.class, new PropChangedHandler());
-            // listen for progress jumps for the current track
+            // listen for progress jumps
             seekedHandler = conn.addSigHandler(Player.Seeked.class, new SeekedHandler());
         } catch (Exception e) {
             LOGGER.error(e.toString(), e.fillInStackTrace());
@@ -93,6 +94,10 @@ public class MprisCustomHud implements ModInitializer {
         long sec = ms.longValue() / microToMs;
         return String.format("%s%02d:%02d", sec / 3600 > 0 ? String.format("%02d:", sec / 3600) : "",
                 sec / 60 % 60, sec % 60);
+    }
+
+    public static void log(String msg) {
+        LOGGER.info("[MprisCustomHud] {}", msg);
     }
 
     protected static void setPreferred(String preferred) {
@@ -200,10 +205,6 @@ public class MprisCustomHud implements ModInitializer {
         }
     }
 
-    public static void log(String msg) {
-        LOGGER.info("[MprisCustomHud] {}", msg);
-    }
-
     private static HashMap<String, Function<String>> getStringMap() {
         HashMap<String, Function<String>> map = new HashMap<>();
         map.put("mpris_player", () -> currentPlayerInfo.name);
@@ -212,6 +213,12 @@ public class MprisCustomHud implements ModInitializer {
         map.put("mpris_album", () -> currentPlayerInfo.metadata.album);
         map.put("mpris_repeat", () -> currentPlayerInfo.repeat);
         map.put("mpris_artist", () -> currentPlayerInfo.metadata.artist);
+        map.put("mpris_lyrics", () -> currentPlayerInfo.metadata.lyrics);
+        map.put("mpris_created_at", () -> currentPlayerInfo.metadata.created_at);
+        map.put("mpris_first_played", () -> currentPlayerInfo.metadata.first_played);
+        map.put("mpris_last_played", () -> currentPlayerInfo.metadata.last_played);
+        map.put("mpris_art_url", () -> currentPlayerInfo.metadata.art_url);
+        map.put("mpris_url", () -> currentPlayerInfo.metadata.url);
         return map;
     }
 
@@ -228,12 +235,24 @@ public class MprisCustomHud implements ModInitializer {
         map.put("mpris_duration", () -> currentPlayerInfo.metadata.duration);
         map.put("mpris_data_age", () -> currentPlayerInfo.isEmpty() ? 0 : currentPlayerInfo.metadata.data_age());
         map.put("mpris_rate", () -> currentPlayerInfo.rate);
+        map.put("mpris_volume", () -> currentPlayerInfo.volume);
+        map.put("mpris_bpm", () -> currentPlayerInfo.metadata.bpm);
+        map.put("mpris_disc", () -> currentPlayerInfo.metadata.disc);
+        map.put("mpris_number", () -> currentPlayerInfo.metadata.number);
+        map.put("mpris_times_played", () -> currentPlayerInfo.metadata.times_played);
+        map.put("mpris_auto_rating", () -> currentPlayerInfo.metadata.auto_rating);
+        map.put("mpris_user_rating", () -> currentPlayerInfo.metadata.user_rating);
         return map;
     }
 
     private static HashMap<String, Function<List<String>>> getListMap() {
         HashMap<String, Function<List<String>>> map = new HashMap<>();
         map.put("mpris_artists", () -> currentPlayerInfo.metadata.artists);
+        map.put("mpris_album_artists", () -> currentPlayerInfo.metadata.album_artists);
+        map.put("mpris_comments", () -> currentPlayerInfo.metadata.comments);
+        map.put("mpris_composers", () -> currentPlayerInfo.metadata.composers);
+        map.put("mpris_genres", () -> currentPlayerInfo.metadata.genres);
+        map.put("mpris_lyricists", () -> currentPlayerInfo.metadata.lyricists);
         return map;
     }
 

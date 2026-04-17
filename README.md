@@ -16,23 +16,45 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 
 ### Variables
 
-All String variables are either not empty or `null` (except for Hudder 8.x which does not allow `null` for variables)
+- All String variables are either not empty or `null`
+- All lists are comma seperated strings for CustomHud
+- Not all variables have to be/will be populated by the player/music application
 
-| Name             |               Type               | Description                                                                                            |
-| :--------------- | :------------------------------: | :----------------------------------------------------------------------------------------------------- |
-| `mpris_track`    |              String              | currently playing track name                                                                           |
-| `mpris_trackid`  |              String              | the unique mpris track id (mostly for debugging)                                                       |
-| `mpris_album`    |              String              | name of the album the track is from                                                                    |
-| `mpris_repeat`   |              String              | repeat status - "None", "Track" or "Playlist"                                                          |
-| `mpris_artist`   |              String              | name of the first artist coming from mpris                                                             |
-| `mpris_artists`  | String/List\<String\> for Hudder | (comma seperated) list of artists                                                                      |
-| `mpris_player`   |              String              | the pretty player name from the `Identity` attribute of `org.mpris.MediaPlayer2`                       |
-| `mpris_shuffle`  |             Boolean              | wether shuffle is on                                                                                   |
-| `mpris_playing`  |             Boolean              | wether the song is playing or paused/stopped                                                           |
-| `mpris_data_age` |              Number              | the age of the metadata information (track, trackid, album, artist, artists, duration) in milliseconds |
-| `mpris_progress` |              Number              | progress in milliseconds                                                                               |
-| `mpris_duration` |              Number              | duration of the track in milliseconds                                                                  |
-| `mpris_rate`     |              Number              | the rate/speed the music is playing as floating point number                                           |
+| Name                  |               Type               | Description                                                                                                 |
+| :-------------------- | :------------------------------: | :---------------------------------------------------------------------------------------------------------- |
+| `mpris_track`         |              String              | currently playing track name                                                                                |
+| `mpris_trackid`       |              String              | the unique mpris track id (mostly for debugging)                                                            |
+| `mpris_album`         |              String              | name of the album the track is from                                                                         |
+| `mpris_repeat`        |              String              | repeat status - "None", "Track" or "Playlist"                                                               |
+| `mpris_artist`        |              String              | name of the first artist coming from mpris                                                                  |
+| `mpris_player`        |              String              | the pretty player name from the `Identity` attribute of `org.mpris.MediaPlayer2`                            |
+| `mpris_lyrics`        |              String              | `xesam:asText`                                                                                              |
+| `mpris_created_at`    |              String              | `xesam:contentCreated`                                                                                      |
+| `mpris_first_played`  |              String              | `xesam:firstUsed`                                                                                           |
+| `mpris_last_played`   |              String              | `xesam:lastUsed`                                                                                            |
+| `mpris_art_url`       |              String              | `xesam:artUrl`                                                                                              |
+| `mpris_url`           |              String              | `xesam:url`                                                                                                 |
+| `mpris_artists`       | String/List\<String\> for Hudder | (comma seperated) list of artists                                                                           |
+| `mpris_album_artists` | String/List\<String\> for Hudder | `xesam:albumArtist`                                                                                         |
+| `mpris_comments`      | String/List\<String\> for Hudder | `xesam:comment`                                                                                             |
+| `mpris_composers`     | String/List\<String\> for Hudder | `xesam:composer`                                                                                            |
+| `mpris_genres`        | String/List\<String\> for Hudder | `xesam:genre`                                                                                               |
+| `mpris_lyricists`     | String/List\<String\> for Hudder | `xesam:lyricist`                                                                                            |
+| `mpris_shuffle`       |             Boolean              | wether shuffle is on                                                                                        |
+| `mpris_playing`       |             Boolean              | wether the song is playing or paused/stopped                                                                |
+| `mpris_data_age`      |              Number              | the age of the metadata information (track, trackid, album, artist, artists, duration, ...) in milliseconds |
+| `mpris_progress`      |              Number              | progress in milliseconds                                                                                    |
+| `mpris_duration`      |              Number              | duration of the track in milliseconds                                                                       |
+| `mpris_rate`          |              Number              | the rate/speed the music is playing as floating point number                                                |
+| `mpris_volume`        |              Number              | the volume the music is playing at as a floating point number (usually between 0 and 1)                     |
+| `mpris_bpm`           |              Number              | `xesam:audioBPM`                                                                                            |
+| `mpris_disc`          |              Number              | `xesam:discNumber`                                                                                          |
+| `mpris_number`        |              Number              | `xesam:trackNumber`                                                                                         |
+| `mpris_times_played`  |              Number              | `xesam:useCount`                                                                                            |
+| `mpris_auto_rating`   |              Number              | `xesam:autoRating`                                                                                          |
+| `mpris_user_rating`   |              Number              | `xesam:userRating`                                                                                          |
+
+See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata) for details on the `xesam:<name>` and `mpris:<name>` variables.
 
 ### Hudder exclusive things
 
@@ -41,7 +63,7 @@ All String variables are either not empty or `null` (except for Hudder 8.x which
 | Name                |       Type        | Description                                                             |
 | :------------------ | :---------------: | :---------------------------------------------------------------------- |
 | `has_mpris`         |      Boolean      | always true                                                             |
-| `mpris_player_info` | Object/PlayerInfo | the PlayerInfo object of the currently selected player                  |
+| `mpris_player_info` | Object/PlayerInfo | the PlayerInfo object of the currently selected player or `null`        |
 | `mpris_players`     |  List\<String\>   | a list of currently tracked players that can be used in `getPlayerInfo` |
 
 #### Functions
@@ -60,16 +82,34 @@ All String variables are either not empty or `null` (except for Hudder 8.x which
 - `boolean shuffle` - shuffle status
 - `boolean playing` - wether music is playing
 - `double rate` - the rate the music is playing at
+- `double volume` - the volume the music is playing at (usually between 0 and 1)
 - `Metadata metadata` - metadata
 - `long progress()` - returns the current progress (in ms)
 
 **Metadata**:
 
-- `String track` - current track
-- `String trackid` - current track id
-- `String album` - current album
+- `String track` - current track - `xesam:title`
+- `String trackid` - current track id - `mpris:trackid`
+- `String album` - current album - `xesam:album`
 - `String artist` - first artist
-- `List<String> artists` - all artists
+- `String art_url` - `mpris:artUrl`
+- `String lyrics` - `xesam:asText`
+- `String created_at` - `xesam:contentCreated`
+- `String first_played` - `xesam:firstUsed`
+- `String last_played` - `xesam:lastUsed`
+- `String url` - `xesam:url`
+- `List<String> artists` - all artists - `xesam:artist`
+- `List<String> album_artists` - `xesam:albumArtist`
+- `List<String> comments` - `xesam:comment`
+- `List<String> composers` - `xesam:composer`
+- `List<String> genres` - `xesam:genre`
+- `List<String> lyricists` - `xesam:lyricist`
+- `int bpm` - `xesam:audioBPM`
+- `int disc` - `xesam:discNumber`
+- `int number` - `xesam:trackNumber`
+- `int times_played` - `xesam:useCount`
+- `float auto_rating` - `xesam:autoRating`
+- `float user_rating` - `xesam:userRating`
 - `long duration` - duration of current track (in ms)
 - `long data_age()` - returns the age of the object (in ms)
 

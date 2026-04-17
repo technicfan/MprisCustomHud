@@ -1,7 +1,7 @@
 package technicfan.mpriscustomhud;
 
 import java.util.List;
-
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,18 +14,17 @@ import org.freedesktop.dbus.types.Variant;
 
 public class PlayerInfo {
     private final static long microToMs = 1000L;
-    public final String name, repeat;
-    public final boolean shuffle, playing;
-    private final boolean existing;
     private final long startPosition, startTime;
-    public final double rate;
+    private final boolean existing;
+    private final Player player;
+
+    public final String name, busname, repeat;
+    public final boolean shuffle, playing;
+    public final double rate, volume;
     public final Metadata metadata;
 
-    private final Player player;
-    public final String busname;
-
     public long progress() {
-        return playing ? currentPosition() : startPosition;
+        return Math.min(playing ? currentPosition() : startPosition, metadata.duration);
     }
 
     public void play() {
@@ -63,6 +62,7 @@ public class PlayerInfo {
         long startPosition,
         long startTime,
         double rate,
+        double volume,
         Player player,
         Metadata metadata
     ) {
@@ -75,16 +75,17 @@ public class PlayerInfo {
         this.startPosition = startPosition;
         this.startTime = startTime;
         this.rate = rate;
+        this.volume = volume;
         this.player = player;
         this.metadata = metadata;
     }
 
     protected PlayerInfo() {
-        this("", "", "", false, false, false, 0, 0, 0, null, new Metadata());
+        this("", "", "", false, false, false, 0, 0, 0, 0, null, new Metadata());
     }
 
     private PlayerInfo(String busname, Player player) {
-        this(busname, "", "", false, false, false, 0, 0, 0, player, new Metadata());
+        this(busname, "", "", false, false, false, 0, 0, 0, 0, player, new Metadata());
     }
 
     protected static PlayerInfo of(String busname, boolean existing) {
@@ -106,7 +107,7 @@ public class PlayerInfo {
         String name = this.name, loop = this.repeat;
         boolean playing = this.playing, shuffle = this.shuffle, existing = true;
         long startPosition = this.startPosition, startTime = this.startTime;
-        double rate = this.rate;
+        double rate = this.rate, volume = this.volume;
         Metadata metadata = this.metadata;
         Player player = this.player;
         if (removed != null) {
@@ -120,6 +121,8 @@ public class PlayerInfo {
                         shuffle = false;
                     case "Rate":
                         rate = 1.0;
+                    case "Volume":
+                        volume = 1.0;
                     case "PlaybackStatus": {
                         playing = false;
                     }
@@ -142,6 +145,9 @@ public class PlayerInfo {
             startPosition = currentPosition();
             startTime = System.currentTimeMillis();
             rate = (double) data.get("Rate").getValue();
+        }
+        if (data.containsKey("Volume")) {
+            volume = (double) data.get("Volume").getValue();
         }
         if (data.containsKey("PlaybackStatus")) {
             if (!init && data.get("PlaybackStatus").getValue().toString().equals("Stopped")) {
@@ -176,7 +182,7 @@ public class PlayerInfo {
             startPosition = 0;
         }
 
-        return new PlayerInfo(busname, name, loop, shuffle, playing, existing, startPosition, startTime, rate, player, metadata);
+        return new PlayerInfo(busname, name, loop, shuffle, playing, existing, startPosition, startTime, rate, volume, player, metadata);
     }
 
     private long currentPosition() {
@@ -201,7 +207,7 @@ public class PlayerInfo {
     }
 
     protected PlayerInfo seeked(Player.Seeked signal) {
-        return new PlayerInfo(busname, name, repeat, shuffle, playing, existing, signal.getPosition() / microToMs, System.currentTimeMillis(), rate, player, metadata);
+        return new PlayerInfo(busname, name, repeat, shuffle, playing, existing, signal.getPosition() / microToMs, System.currentTimeMillis(), rate, volume, player, metadata);
     }
 
     protected PlayerInfo propertiesChanged(PropertiesChanged signal) {
@@ -218,70 +224,89 @@ public class PlayerInfo {
     }
 
     public static class Metadata {
-        public final String track, trackid, album, artist;
-        public final List<String> artists;
+        public final String track, trackid, album, artist, lyrics, created_at, first_played, last_played, art_url, url;
+        public final List<String> artists, album_artists, comments, composers, genres, lyricists;
+        public final int bpm, disc, number, times_played;
+        public final float auto_rating, user_rating;
         public final long duration;
         private final long creationTime;
 
         @Override
         public String toString() {
-            return String.format("{track: %s, trackid: %s, album: %s, artist: %s, artists: %s, duration: %s}", track, trackid, album, artist, artists, duration);
+            // yeah, I'm to lazy
+            return String.format(
+                "{track: %s, trackid: %s, album: %s, artist: %s, artists: %s, duration: %s, ...}",
+                track, trackid, album, artist, artists, duration
+            );
         }
 
         Metadata() {
-            track = "";
-            trackid = "";
-            album = "";
-            artist = "";
-            artists = List.of();
-            duration = 0;
-            creationTime = System.currentTimeMillis();
+            this(Map.of());
         }
 
         Metadata(Map<String, ?> metadata) {
-            Object lengthObj, trackObj, trackIdObj, albumObj, artistsObj;
-            lengthObj = metadata.get("mpris:length");
-            trackIdObj = metadata.get("mpris:trackid");
-            artistsObj = metadata.get("xesam:artist");
-            trackObj = metadata.get("xesam:title");
-            albumObj = metadata.get("xesam:album");
-            if (lengthObj != null) {
-                if (lengthObj instanceof UInt64) {
-                    duration = ((UInt64) lengthObj).longValue() / microToMs;
+            trackid = getString(metadata.get("mpris:trackid"));
+            Object length = metadata.get("mpris:length");
+            if (length != null) {
+                if (length instanceof UInt64) {
+                    duration = ((UInt64) length).value().divide(BigInteger.valueOf(microToMs)).longValue();
                 } else {
-                    duration = (long) lengthObj / microToMs;
+                    duration = (long) length / microToMs;
                 }
             } else {
                 duration = 0;
             }
-            if (artistsObj != null && artistsObj instanceof List) {
-                List<?> tempList = (List<?>) artistsObj;
+            art_url = getString(metadata.get("mpris:artUrl"));
+            album = getString(metadata.get("xesam:album"));
+            album_artists = getList(metadata.get("xesam:albumArtist"));
+            artists = getList(metadata.get("xesam:artist"));
+            artist = artists.size() > 0 ? artists.get(0) : "";
+            lyrics = getString(metadata.get("xesam:asText"));
+            bpm = getNumber(metadata.get("xesam:audioBPM")).intValue();
+            auto_rating = getNumber(metadata.get("xesam:autoRating")).floatValue();
+            comments = getList(metadata.get("xesam:comment"));
+            composers = getList(metadata.get("xesam:composer"));
+            created_at = getString(metadata.get("xesam:contentCreated"));
+            disc = getNumber(metadata.get("xesam:discNumber")).intValue();
+            first_played = getString(metadata.get("xesam:firstUsed"));
+            genres = getList(metadata.get("xesam:genre"));
+            last_played = getString(metadata.get("xesam:lastUsed"));
+            lyricists = getList(metadata.get("xesam:lyricist"));
+            track = getString(metadata.get("xesam:title"));
+            number = getNumber(metadata.get("xesam:trackNumber")).intValue();
+            url = getString(metadata.get("xesam:url"));
+            times_played = getNumber(metadata.get("xesam:useCount")).intValue();
+            user_rating = getNumber(metadata.get("xesam:userRating")).floatValue();
+            creationTime = System.currentTimeMillis();
+        }
+
+        private static String getString(Object obj) {
+            if (obj instanceof String) {
+                return (String) obj;
+            } else {
+                return "";
+            }
+        }
+
+        private static Number getNumber(Object obj) {
+            if (obj instanceof Number) {
+                return (Number) obj;
+            } else {
+                return 0;
+            }
+        }
+
+        private static List<String> getList(Object obj) {
+            if (obj instanceof List) {
+                List<?> tempList = (List<?>) obj;
                 String[] list = new String[tempList.size()];
                 for (int i = 0; i < tempList.size(); i++) {
                     list[i] = (String) tempList.get(i);
                 }
-                artist = list.length == 0 ? "" : list[0];
-                artists = List.of(list);
+                return List.of(list);
             } else {
-                artist = "";
-                artists = List.of();
+                return List.of();
             }
-            if (trackObj != null && trackObj instanceof String) {
-                track = (String) trackObj;
-            } else {
-                track = "";
-            }
-            if (trackIdObj != null && trackIdObj instanceof String) {
-                trackid = (String) trackIdObj;
-            } else {
-                trackid = "";
-            }
-            if (albumObj != null && albumObj instanceof String) {
-                album = (String) albumObj;
-            } else {
-                album = "";
-            }
-            creationTime = System.currentTimeMillis();
         }
 
         public long data_age() {
@@ -291,6 +316,9 @@ public class PlayerInfo {
 
     @Override
     public String toString() {
-        return String.format("{busname: %s, name: %s, repeat: %s, shuffle: %s, playing: %s, rate: %s, metadata: %s}", busname, name, repeat, shuffle, playing, rate, metadata);
+        return String.format(
+            "{busname: %s, name: %s, repeat: %s, shuffle: %s, playing: %s, rate: %s, volume: %s, metadata: %s}",
+            busname, name, repeat, shuffle, playing, rate, volume, metadata
+        );
     }
 }
