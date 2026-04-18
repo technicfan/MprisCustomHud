@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
+import org.freedesktop.dbus.exceptions.DBusExecutionException;
 import org.freedesktop.dbus.handlers.AbstractPropertiesChangedHandler;
 import org.freedesktop.dbus.interfaces.DBus;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
@@ -290,13 +291,16 @@ public class MprisCustomHud implements ModInitializer {
         public void handle(Player.Seeked signal) {
             for (String busName : players.keySet()) {
                 // check if signal came from the current player
-                if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
-                    PlayerInfo player = players.get(busName).seeked(signal);
-                    players.put(busName, player);
-                    if (busName.equals(currentPlayerInfo.busname)) {
-                        currentPlayerInfo = player;
+                try {
+                    if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
+                        PlayerInfo player = players.get(busName).seeked(signal);
+                        players.put(busName, player);
+                        if (busName.equals(currentPlayerInfo.busname)) {
+                            currentPlayerInfo = player;
+                        }
+                        break;
                     }
-                    break;
+                } catch (DBusExecutionException e) {
                 }
             }
         }
@@ -307,13 +311,16 @@ public class MprisCustomHud implements ModInitializer {
         public void handle(PropertiesChanged signal) {
             for (String busName : players.keySet()) {
                 // check if signal came from the current player
-                if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
-                    PlayerInfo player = players.get(busName).propertiesChanged(signal);
-                    players.put(busName, player);
-                    if (busName.equals(currentPlayerInfo.busname)) {
-                        currentPlayerInfo = player;
+                try {
+                    if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
+                        PlayerInfo player = players.get(busName).propertiesChanged(signal);
+                        players.put(busName, player);
+                        if (busName.equals(currentPlayerInfo.busname)) {
+                            currentPlayerInfo = player;
+                        }
+                        break;
                     }
-                    break;
+                } catch (DBusExecutionException e) {
                 }
             }
         }
