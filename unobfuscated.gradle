@@ -47,6 +47,7 @@ stonecutter {
        replace "KeyBinding", "KeyMapping"
        replace "keybinding.v1", "keymapping.v1"
        replace "ClientCommandManager", "ClientCommands"
+       replace "GuiGraphics", "GuiGraphicsExtractor"
     }
 }
 

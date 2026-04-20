@@ -1,6 +1,6 @@
 package technicfan.mpriscustomhud;
 
-import net.fabricmc.api.ModInitializer;
+import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import technicfan.mpriscustomhud.mod_support.ModSupport;
 
@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
@@ -27,7 +28,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-public class MprisCustomHud implements ModInitializer {
+public class MprisCustomHud implements ClientModInitializer {
     public static final String MOD_ID = "mpriscustomhud";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
@@ -49,7 +50,7 @@ public class MprisCustomHud implements ModInitializer {
     }
 
     @Override
-    public void onInitialize() {
+    public void onInitializeClient() {
         loadConfig();
 
         try {
@@ -57,13 +58,13 @@ public class MprisCustomHud implements ModInitializer {
             dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
             for (String name : dbus.ListNames()) {
                 if (name.startsWith(busPrefix)) {
+                    PlayerInfo player = PlayerInfo.of(name, true);
                     if (name.equals(CONFIG.preferred)
                             || (currentPlayerInfo.isEmpty() && !CONFIG.onlyPreferred)) {
-                        currentPlayerInfo = PlayerInfo.of(name, true);
-                        players.put(name, currentPlayerInfo);
-                    } else {
-                        players.put(name, PlayerInfo.of(name, true));
+                        currentPlayerInfo = player;
                     }
+                    players.put(name, player);
+                    CompletableFuture.runAsync(() -> AlbumArtManager.loadAlbumArt(name, player.metadata.art_url));
                 }
             }
             ModSupport.register(getStringMap(), getBoolMap(), getNumberMap(), getListMap());
@@ -262,6 +263,7 @@ public class MprisCustomHud implements ModInitializer {
         public void handle(DBus.NameOwnerChanged signal) {
             if (signal.newOwner.isEmpty() && !signal.oldOwner.isEmpty() && players.containsKey(signal.name)) {
                 players.remove(signal.name);
+                AlbumArtManager.loadAlbumArt(signal.name, "");
                 if (signal.name.equals(currentPlayerInfo.busname)) {
                     if (!CONFIG.onlyPreferred) {
                         if (players.containsKey(CONFIG.preferred)) {
@@ -313,10 +315,14 @@ public class MprisCustomHud implements ModInitializer {
                 // check if signal came from the current player
                 try {
                     if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
+                        String art_url = players.get(busName).metadata.art_url;
                         PlayerInfo player = players.get(busName).propertiesChanged(signal);
                         players.put(busName, player);
                         if (busName.equals(currentPlayerInfo.busname)) {
                             currentPlayerInfo = player;
+                        }
+                        if (!player.metadata.art_url.equals(art_url)) {
+                            AlbumArtManager.loadAlbumArt(busName, player.metadata.art_url);
                         }
                         break;
                     }

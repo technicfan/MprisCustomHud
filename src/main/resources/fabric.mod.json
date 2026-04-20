@@ -12,8 +12,10 @@
     "icon": "assets/mpriscustomhud/icon.png",
     "environment": "client",
     "entrypoints": {
-        "main": ["technicfan.mpriscustomhud.MprisCustomHud"],
-        "client": ["technicfan.mpriscustomhud.MprisCustomHudClient"]
+        "client": [
+            "technicfan.mpriscustomhud.MprisCustomHudClient",
+            "technicfan.mpriscustomhud.MprisCustomHud"
+        ]
     },
     "mixins": [],
     "depends": {

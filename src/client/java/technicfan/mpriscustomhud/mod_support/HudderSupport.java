@@ -3,13 +3,22 @@ package technicfan.mpriscustomhud.mod_support;
 import java.util.List;
 import java.util.HashMap;
 
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.ResourceLocation;
+
 //? if >=1.21.11 {
 /*
 import dev.ngspace.hudder.api.functionsandconsumers.FunctionAndConsumerAPI;
 import dev.ngspace.hudder.api.variableregistry.DataVariableRegistry;
 import dev.ngspace.hudder.api.variableregistry.VariableTypes;
+import dev.ngspace.hudder.main.HudderRenderer;
+import dev.ngspace.hudder.uielements.AUIElement;
 */
 //?} else {
+import io.github.ngspace.hudder.main.HudderRenderer;
+import io.github.ngspace.hudder.uielements.AUIElement;
 import io.github.ngspace.hudder.compilers.utils.functionandconsumerapi.FunctionAndConsumerAPI;
 //? if >=1.21.9 {
 import io.github.ngspace.hudder.data_management.api.DataVariableRegistry;
@@ -19,6 +28,7 @@ import io.github.ngspace.hudder.data_management.api.VariableTypes;
 //?}
 //?}
 import technicfan.mpriscustomhud.MprisCustomHud;
+import technicfan.mpriscustomhud.AlbumArtManager;
 
 public class HudderSupport {
     public static void register(
@@ -81,6 +91,9 @@ public class HudderSupport {
         */
         //?}
 
+        FunctionAndConsumerAPI.getInstance().registerConsumer((ui, c, args) -> ui.addUIElement(new AlbumArtElement(args[0].asString(), args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt())),
+				"albumArt");
+
         FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {
                 if (args.length < 1) {
                     return null;
@@ -90,5 +103,29 @@ public class HudderSupport {
         }, "getPlayerInfo");
 
         MprisCustomHud.log("Registered Hudder variables and functions");
+    }
+
+    public static class AlbumArtElement extends AUIElement {
+        public final int x;
+        public final int y;
+        public final int width;
+        public final int height;
+        public final ResourceLocation id;
+
+        public AlbumArtElement(String name, int x, int y, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.id = AlbumArtManager.isLoaded(name);
+            if (this.id == null) {
+                throw new IllegalArgumentException("There is no album art loaded for " + name);
+            }
+        }
+
+        @Override
+        public void renderElement(GuiGraphics context, HudderRenderer renderer, DeltaTracker delta) {
+            context.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0f, width, height, width, height);
+        }
     }
 }
