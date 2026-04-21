@@ -7,7 +7,6 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.ResourceLocation;
-
 //? if >=1.21.11 {
 /*
 import dev.ngspace.hudder.api.functionsandconsumers.FunctionAndConsumerAPI;
@@ -91,8 +90,15 @@ public class HudderSupport {
         */
         //?}
 
-        FunctionAndConsumerAPI.getInstance().registerConsumer((ui, c, args) -> ui.addUIElement(new AlbumArtElement(args[0].asString(), args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt())),
-				"albumArt");
+        FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {
+            AlbumArtManager.Tuple<ResourceLocation, Float> info = AlbumArtManager.getInfo(args[0].asString());
+            if (args.length == 6 && info == AlbumArtManager.missing && !args[5].asBoolean()) {
+                return false;
+            } else {
+                ui.addUIElement(new AlbumArtElement(info, args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt()));
+                return true;
+            }
+        }, "mpris_album_art");
 
         FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {
                 if (args.length < 1) {
@@ -105,27 +111,24 @@ public class HudderSupport {
         MprisCustomHud.log("Registered Hudder variables and functions");
     }
 
-    public static class AlbumArtElement extends AUIElement {
+    private static class AlbumArtElement extends AUIElement {
         public final int x;
         public final int y;
         public final int width;
         public final int height;
         public final ResourceLocation id;
 
-        public AlbumArtElement(String name, int x, int y, int width, int height) {
+        public AlbumArtElement(AlbumArtManager.Tuple<ResourceLocation, Float> info, int x, int y, int width, int height) {
             this.x = x;
             this.y = y;
-            this.width = width;
             this.height = height;
-            this.id = AlbumArtManager.isLoaded(name);
-            if (this.id == null) {
-                throw new IllegalArgumentException("There is no album art loaded for " + name);
-            }
+            this.width = width == 0 ? (int) (height * info.getB()) : width;
+            this.id = info.getA();
         }
 
         @Override
         public void renderElement(GuiGraphics context, HudderRenderer renderer, DeltaTracker delta) {
-            context.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0f, width, height, width, height);
+            context.blit(RenderPipelines.GUI_TEXTURED, id, x, y, 0, 0, width, height, width, height);
         }
     }
 }

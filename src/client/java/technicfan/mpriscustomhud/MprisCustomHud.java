@@ -1,6 +1,7 @@
 package technicfan.mpriscustomhud;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import technicfan.mpriscustomhud.mod_support.ModSupport;
 
@@ -52,6 +53,9 @@ public class MprisCustomHud implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         loadConfig();
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            AlbumArtManager.release(client.getTextureManager());
+        });
 
         try {
             conn = DBusConnectionBuilder.forSessionBus().build();
@@ -64,6 +68,7 @@ public class MprisCustomHud implements ClientModInitializer {
                         currentPlayerInfo = player;
                     }
                     players.put(name, player);
+                    AlbumArtManager.loadAlbumArt(name, "");
                     CompletableFuture.runAsync(() -> AlbumArtManager.loadAlbumArt(name, player.metadata.art_url));
                 }
             }
@@ -278,6 +283,7 @@ public class MprisCustomHud implements ClientModInitializer {
             } else if (!signal.newOwner.isEmpty() && signal.oldOwner.isEmpty()
                     && signal.name.startsWith(busPrefix)) {
                 PlayerInfo player = PlayerInfo.of(signal.name, false);
+                AlbumArtManager.loadAlbumArt(signal.name, "");
                 players.put(signal.name, player);
                 if (signal.name.equals(CONFIG.preferred)) {
                     currentPlayerInfo = player;
