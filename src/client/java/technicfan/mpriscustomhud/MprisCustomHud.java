@@ -197,7 +197,7 @@ public class MprisCustomHud implements ClientModInitializer {
     }
 
     protected static void cyclePlayers() {
-        if (players.size() > 0 && !CONFIG.onlyPreferred) {
+        if (players.mappingCount() > 0 && !CONFIG.onlyPreferred) {
             List<String> keys = new ArrayList<>(players.keySet());
             int index = keys.indexOf(currentPlayerInfo.busname);
             currentPlayerInfo = players.get(keys.get(index + 1 == keys.size() ? 0 : index + 1));

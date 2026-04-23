@@ -28,7 +28,7 @@ import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 public class AlbumArtManager {
     private static Minecraft minecraft;
     private static final int maxCacheSize = 16;
-    private static final File cacheDir = FabricLoader.getInstance().getGameDir().resolve("cache").resolve(MprisCustomHud.MOD_ID).toFile();
+    private static final File cacheDir = new File(FabricLoader.getInstance().getGameDir().toFile(), "cache/" + MprisCustomHud.MOD_ID);
     private static HashSet<ResourceLocation> toRemove = new HashSet<>();
     private static ConcurrentHashMap<String, File> cache = new ConcurrentHashMap<>();
 
@@ -59,7 +59,6 @@ public class AlbumArtManager {
                     try {
                         data = ImageIO.read(cache.get(cacheName).toURI().toURL());
                         cached = true;
-                        MprisCustomHud.log("wow");
                     } catch (IOException e) {}
                 }
                 if (data == null) {
@@ -78,32 +77,33 @@ public class AlbumArtManager {
                     }
                     return player.update(new AlbumArt(id, dominantColor(image), image.getWidth(), image.getHeight()));
                 }
-            } catch (IOException e) {
-                MprisCustomHud.warn("Failed to load album image for " + player.name);
-            }
+            } catch (IOException e) {}
         }
         toRemove.add(id);
         return player.update(AlbumArt.EMPTY);
+    }
+
+    private static void removeOldest() {
+        Optional<File> oldest = cache.values().stream().min((a, b) -> Long.compare(a.lastModified(), b.lastModified()));
+        if (oldest.isPresent() && oldest.get().delete()) {
+            cache.remove(oldest.get().getName());
+        }
     }
 
     private static void addToCache(String url, BufferedImage image) {
         try {
             String name = getCacheName(url);
             if (name != null) {
-                while (cache.size() > maxCacheSize) {
-                    Optional<File> oldest =  cache.values().stream().min((a, b) -> a.lastModified() > b.lastModified() ? 1 : -1);
-                    if (oldest.isPresent() && oldest.get().delete()) {
-                        cache.remove(oldest.get().getName());
-                    }
+                if (cache.mappingCount() >= maxCacheSize) {
+                    removeOldest();
                 }
                 File file = new File(cacheDir, name);
                 if (file.createNewFile()) {
                     ImageIO.write(image, "PNG", file);
+                    cache.put(name, file);
                 }
             }
-        } catch (IOException e) {
-            MprisCustomHud.warn("Failed to write album image to cache");
-        }
+        } catch (IOException e) {}
     }
 
     private static String getCacheName(String url) {

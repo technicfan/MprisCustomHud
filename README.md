@@ -42,6 +42,7 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 | `mpris_lyricists`     | String/List\<String\> for Hudder | `xesam:lyricist`                                                                                            |
 | `mpris_shuffle`       |             Boolean              | wether shuffle is on                                                                                        |
 | `mpris_playing`       |             Boolean              | wether the song is playing or paused/stopped                                                                |
+| `mpris_has_album_art` |             Boolean              | wether the track has an album art/it is loaded                                                              |
 | `mpris_data_age`      |              Number              | the age of the metadata information (track, trackid, album, artist, artists, duration, ...) in milliseconds |
 | `mpris_progress`      |              Number              | progress in milliseconds                                                                                    |
 | `mpris_duration`      |              Number              | duration of the track in milliseconds                                                                       |
@@ -53,10 +54,21 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 | `mpris_times_played`  |              Number              | `xesam:useCount`                                                                                            |
 | `mpris_auto_rating`   |              Number              | `xesam:autoRating`                                                                                          |
 | `mpris_user_rating`   |              Number              | `xesam:userRating`                                                                                          |
+| `mpris_album_width`   |              Number              | the absolute pixel width of the album art                                                                   |
+| `mpris_album_height`  |              Number              | the absolute pixel height of the album art                                                                  |
+| `mpris_album_color`   |              Number              | the rgb value of the dominant color of the album art                                                        |
 
 See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata) for details on the `xesam:<name>` and `mpris:<name>` variables.
 
-### Hudder exclusive things
+### CustomHud specific things
+
+#### Variables/Consumers/Parsers (whatever this is called)
+
+| Name              | Type | Description                                                                                                                                                                                                     |
+| :---------------- | :--: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mpris_album_art` | Icon | draws the album art image of the current player; if the track has no album art, it draws a fallback; use `{mpris_album_art:<player>}` to get a specific album art; use `-f` to retain the original aspect ratio |
+
+### Hudder specific things
 
 #### Variables
 
@@ -66,11 +78,12 @@ See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https:
 | `mpris_player_info` | Object/PlayerInfo | the PlayerInfo object of the currently selected player or `null`        |
 | `mpris_players`     |  List\<String\>   | a list of currently tracked players that can be used in `getPlayerInfo` |
 
-#### Functions
+#### Functions/Methods
 
-| Name            |   Arguments   | Returns                                                                           |
-| :-------------- | :-----------: | :-------------------------------------------------------------------------------- |
-| `getPlayerInfo` | `String name` | the PlayerInfo object with the bus name `org.mpris.MediaPlayer2.<name>` or `null` |
+| Name              |                                     Arguments                                     | Effect                                                                                                                                                                                                             |
+| :---------------- | :-------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getPlayerInfo`   |                                   `String name`                                   | returns the PlayerInfo object with the bus name `org.mpris.MediaPlayer2.<name>` or `null`                                                                                                                          |
+| `mpris_album_art` | `String name` or `AlbumArt albumArt`, `int x`, `int y`, `int width`, `int height` | draws the album art image; if the track has no album art, it draws a fallback; if width or height is 0 it will retain the original aspect ratio; if both are 0, it will use the pixel dimensions (way too big lol) |
 
 #### Objects
 
@@ -111,7 +124,15 @@ See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https:
 - `float auto_rating` - `xesam:autoRating`
 - `float user_rating` - `xesam:userRating`
 - `long duration` - duration of current track (in ms)
+- `AlbumArt album_art` - information on the album art
 - `long data_age()` - returns the age of the object (in ms)
+
+**AlbumArt**
+
+- `int width` - width in pixels
+- `int height` - height in pixels
+- `int color` - the rgb value of the dominant color of the album art
+- `boolean exists()` - wether the object for the real image or the fallback one
 
 ### Controls
 
@@ -133,7 +154,7 @@ With `mpriscustomhud player`, you get the currently active player, with `mpriscu
 
 ### Problems/Todo
 
-- currently there is no album art variable; maybe I will try to add it at some point
+- ~~currently there is no album art variable; maybe I will try to add it at some point~~ done
 
 ### Libraries used
 
