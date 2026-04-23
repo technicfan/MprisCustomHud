@@ -5,7 +5,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.HashSet;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.imageio.ImageIO;
 
@@ -15,61 +14,39 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.ResourceLocation;
+import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 
 public class AlbumArtManager {
     private static Minecraft client = Minecraft.getInstance();
-    private static ConcurrentHashMap<String, Tuple<ResourceLocation, Float>> loaded = new ConcurrentHashMap<>();
     private static HashSet<ResourceLocation> toRemove = new HashSet<>();
-    public static final Tuple<ResourceLocation, Float> missing = new Tuple<>(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, "textures/missing.png"), 1f);
 
-    public static class Tuple<K, L> {
-        private final K a;
-        private final L b;
-
-        Tuple(K a, L b) {
-            this.a = a;
-            this.b = b;
-        }
-
-        public K getA() {
-            return a;
-        }
-
-        public L getB() {
-            return b;
-        }
-    }
-
-    private static void remove(ResourceLocation id) {
-        loaded.remove(id.getPath());
-        toRemove.add(id);
-    }
-
-    private static void add(Tuple<ResourceLocation, Float> element) {
-        toRemove.remove(element.getA());
-        loaded.put(element.getA().getPath(), element);
-    }
-
-    protected static void loadAlbumArt(String busname, String url) {
-        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, busname.substring(23));
-        if (!url.isEmpty()) {
+    protected static PlayerInfo loadAlbumArt(PlayerInfo player) {
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, player.busname.substring(23));
+        if (!player.metadata.art_url.isEmpty()) {
             try {
-                BufferedImage data = ImageIO.read(URI.create(url).toURL());
+                BufferedImage data = ImageIO.read(URI.create(player.metadata.art_url).toURL());
                 if (data != null) {
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
                     ImageIO.write(data, "PNG", output);
                     NativeImage image = NativeImage.read(output.toByteArray());
                     client.executeBlocking(() -> {
                         client.getTextureManager().register(id, new DynamicTexture(id::getPath, image));
-                        add(new Tuple<>(id, (float) image.getWidth() / image.getHeight()));
                     });
+                    toRemove.remove(id);
+                    return player.update(new AlbumArt(id, dominantColor(image), image.getWidth(), image.getHeight()));
                 }
             } catch (IOException e) {
                 MprisCustomHud.log("Failed to load album image");
-                remove(id);
+                MprisCustomHud.LOGGER.warn(e.toString(), e.fillInStackTrace());
             }
-        } else {
-            remove(id);
+        }
+        toRemove.add(id);
+        return player.update(AlbumArt.empty());
+    }
+
+    protected static void remove(AlbumArt albumArt) {
+        if (!albumArt.isEmpty()) {
+            toRemove.add(albumArt.getId());
         }
     }
 
@@ -80,9 +57,24 @@ public class AlbumArtManager {
         toRemove.removeIf(id -> true);
     }
 
-    public static Tuple<ResourceLocation, Float> getInfo(String name) {
-        String path = name.length() > 23 ? name.substring(23) : name;
-        Tuple<ResourceLocation, Float> id = loaded.get(path);
-        return id != null ? id : missing;
+    private static int dominantColor(NativeImage image) {
+        int[] colorGroups = new int[512];
+        for (int rgb : image.getPixels()) {
+            // set all bits 0 except for 3 per color (e0_16 = 1110 0000_2)
+            rgb &= 0xffe0e0e0;
+            // extract the 3bit and put them at the right place for each color
+            // then add one to the counter of that color
+            colorGroups[(rgb & 0xff0000) >> 15 | (rgb & 0x00ff00) >> 10 | (rgb & 0x0000ff) >> 5]++;
+        }
+        // find the group that appeared most
+        int result = 0, max = colorGroups[0];
+        for (int i = 1; i < colorGroups.length; i++) {
+            if (colorGroups[i] > max) {
+                result = i;
+                max = colorGroups[i];
+            }
+        }
+        // convert back to 8bit per color
+        return (result & 0x1c0) << 15 | (result & 0x38) << 10 | (result & 0x7) << 5;
     }
 }

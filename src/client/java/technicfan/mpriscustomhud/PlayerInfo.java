@@ -12,6 +12,8 @@ import org.freedesktop.dbus.interfaces.Properties.PropertiesChanged;
 import org.freedesktop.dbus.types.UInt64;
 import org.freedesktop.dbus.types.Variant;
 
+import net.minecraft.resources.ResourceLocation;
+
 public class PlayerInfo {
     private final static long microToMs = 1000L;
     private final long startPosition, startTime;
@@ -53,9 +55,9 @@ public class PlayerInfo {
     }
 
     private PlayerInfo(
-        String busName,
+        String busname,
         String name,
-        String loop,
+        String repeat,
         boolean shuffle,
         boolean playing,
         boolean existing,
@@ -66,9 +68,9 @@ public class PlayerInfo {
         Player player,
         Metadata metadata
     ) {
-        this.busname = busName;
+        this.busname = busname;
         this.name = name;
-        this.repeat = loop;
+        this.repeat = repeat;
         this.shuffle = shuffle;
         this.playing = playing;
         this.existing = existing;
@@ -169,7 +171,7 @@ public class PlayerInfo {
             for (Map.Entry<?, ?> entry : newMetadata.entrySet()) {
                 metaData.put((String) entry.getKey(), ((Variant<?>) entry.getValue()).getValue());
             }
-            metadata = new Metadata(metaData);
+            metadata = new Metadata(metaData, metadata.album_art);
         }
         if (init && data.containsKey("Position")) {
             long positionLong = (long) data.get("Position").getValue();
@@ -223,12 +225,48 @@ public class PlayerInfo {
         return busname.isEmpty();
     }
 
+    public static class AlbumArt {
+        private static final AlbumArt empty = new AlbumArt(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, "textures/missing.png"), 0, 16, 16);
+        private final ResourceLocation id;
+        private final int width;
+        private final int height;
+        public final int color;
+
+        public AlbumArt(ResourceLocation id, int color, int width, int height) {
+            this.id = id;
+            this.color = color;
+            this.width = width;
+            this.height = height;
+        }
+
+        public static AlbumArt empty() {
+            return empty;
+        }
+
+        public ResourceLocation getId() {
+            return id;
+        }
+
+        public int getWidth() {
+            return width;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+
+        public boolean isEmpty() {
+            return this == empty;
+        }
+    }
+
     public static class Metadata {
         public final String track, trackid, album, artist, lyrics, created_at, first_played, last_played, art_url, url;
         public final List<String> artists, album_artists, comments, composers, genres, lyricists;
         public final int bpm, disc, number, times_played;
         public final float auto_rating, user_rating;
         public final long duration;
+        public final AlbumArt album_art;
         private final long creationTime;
 
         @Override
@@ -241,43 +279,72 @@ public class PlayerInfo {
         }
 
         Metadata() {
-            this(Map.of());
+            this(Map.of(), AlbumArt.empty);
         }
 
-        Metadata(Map<String, ?> metadata) {
-            trackid = getString(metadata.get("mpris:trackid"));
+        Metadata(Metadata metadata, AlbumArt albumArt) {
+            this.trackid = metadata.trackid;
+            this.duration = metadata.duration;
+            this.art_url = metadata.art_url;
+            this.album = metadata.album;
+            this.album_artists = metadata.album_artists;
+            this.artists = metadata.artists;
+            this.artist = metadata.artist;
+            this.lyrics = metadata.lyrics;
+            this.bpm = metadata.bpm;
+            this.auto_rating = metadata.auto_rating;
+            this.comments = metadata.comments;
+            this.composers = metadata.composers;
+            this.created_at = metadata.created_at;
+            this.disc = metadata.disc;
+            this.first_played = metadata.first_played;
+            this.genres = metadata.genres;
+            this.last_played = metadata.last_played;
+            this.lyricists = metadata.lyricists;
+            this.track = metadata.track;
+            this.number = metadata.number;
+            this.url = metadata.url;
+            this.times_played = metadata.times_played;
+            this.user_rating = metadata.user_rating;
+            this.creationTime = metadata.creationTime;
+            this.album_art = albumArt;
+        }
+
+        Metadata(Map<String, ?> metadata, AlbumArt oldAlbumArt) {
+            this.trackid = getString(metadata.get("mpris:trackid"));
             Object length = metadata.get("mpris:length");
             if (length != null) {
                 if (length instanceof UInt64) {
-                    duration = ((UInt64) length).value().divide(BigInteger.valueOf(microToMs)).longValue();
+                    this.duration = ((UInt64) length).value().divide(BigInteger.valueOf(microToMs)).longValue();
                 } else {
-                    duration = (long) length / microToMs;
+                    this.duration = (long) length / microToMs;
                 }
             } else {
-                duration = 0;
+                this.duration = 0;
             }
-            art_url = getString(metadata.get("mpris:artUrl"));
-            album = getString(metadata.get("xesam:album"));
-            album_artists = getList(metadata.get("xesam:albumArtist"));
-            artists = getList(metadata.get("xesam:artist"));
-            artist = artists.size() > 0 ? artists.get(0) : "";
-            lyrics = getString(metadata.get("xesam:asText"));
-            bpm = getNumber(metadata.get("xesam:audioBPM")).intValue();
-            auto_rating = getNumber(metadata.get("xesam:autoRating")).floatValue();
-            comments = getList(metadata.get("xesam:comment"));
-            composers = getList(metadata.get("xesam:composer"));
-            created_at = getString(metadata.get("xesam:contentCreated"));
-            disc = getNumber(metadata.get("xesam:discNumber")).intValue();
-            first_played = getString(metadata.get("xesam:firstUsed"));
-            genres = getList(metadata.get("xesam:genre"));
-            last_played = getString(metadata.get("xesam:lastUsed"));
-            lyricists = getList(metadata.get("xesam:lyricist"));
-            track = getString(metadata.get("xesam:title"));
-            number = getNumber(metadata.get("xesam:trackNumber")).intValue();
-            url = getString(metadata.get("xesam:url"));
-            times_played = getNumber(metadata.get("xesam:useCount")).intValue();
-            user_rating = getNumber(metadata.get("xesam:userRating")).floatValue();
-            creationTime = System.currentTimeMillis();
+            this.art_url = getString(metadata.get("mpris:artUrl"));
+            this.album = getString(metadata.get("xesam:album"));
+            this.album_artists = getList(metadata.get("xesam:albumArtist"));
+            this.artists = getList(metadata.get("xesam:artist"));
+            this.artist = this.artists.size() > 0 ? this.artists.get(0) : "";
+            this.lyrics = getString(metadata.get("xesam:asText"));
+            this.bpm = getNumber(metadata.get("xesam:audioBPM")).intValue();
+            this.auto_rating = getNumber(metadata.get("xesam:autoRating")).floatValue();
+            this.comments = getList(metadata.get("xesam:comment"));
+            this.composers = getList(metadata.get("xesam:composer"));
+            this.created_at = getString(metadata.get("xesam:contentCreated"));
+            this.disc = getNumber(metadata.get("xesam:discNumber")).intValue();
+            this.first_played = getString(metadata.get("xesam:firstUsed"));
+            this.genres = getList(metadata.get("xesam:genre"));
+            this.last_played = getString(metadata.get("xesam:lastUsed"));
+            this.lyricists = getList(metadata.get("xesam:lyricist"));
+            this.track = getString(metadata.get("xesam:title"));
+            this.number = getNumber(metadata.get("xesam:trackNumber")).intValue();
+            this.url = getString(metadata.get("xesam:url"));
+            this.times_played = getNumber(metadata.get("xesam:useCount")).intValue();
+            this.user_rating = getNumber(metadata.get("xesam:userRating")).floatValue();
+            this.creationTime = System.currentTimeMillis();
+            this.album_art = oldAlbumArt;
         }
 
         private static String getString(Object obj) {
@@ -312,6 +379,10 @@ public class PlayerInfo {
         public long data_age() {
             return System.currentTimeMillis() - creationTime;
         }
+    }
+
+    protected PlayerInfo update(AlbumArt newAlbumArt) {
+        return new PlayerInfo(busname, name, repeat, shuffle, playing, existing, startPosition, startTime, rate, volume, player, new Metadata(metadata, newAlbumArt));
     }
 
     @Override

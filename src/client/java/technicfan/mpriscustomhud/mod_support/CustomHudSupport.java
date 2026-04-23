@@ -15,8 +15,7 @@ import com.minenash.customhud.render.RenderPiece;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.ResourceLocation;
-
-import technicfan.mpriscustomhud.AlbumArtManager;
+import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 //?}
 import technicfan.mpriscustomhud.MprisCustomHud;
 
@@ -64,29 +63,30 @@ public class CustomHudSupport {
 
     //? if <=1.21.10 {
     private static class AlbumArtElement extends IconElement {
-        // private final int width;
-        private final int height;
-        private final Flags flags;
+        private final boolean formatted;
+        private ResourceLocation id;
+        private int height;
 
         private AlbumArtElement(Flags flags) {
-            super(flags, 0);
-            // AlbumArtManager.Tuple<ResourceLocation, Float> info = AlbumArtManager.getInfo(name);
-            this.height = (int) (16 * scale);
-            this.flags = flags;
-            // this.width = flags.formatted ? (int) (height * info.getB()) : height;
-            // this.id = info.getA();
+            super(flags, 32);
+            this.formatted = flags.formatted;
+            update(MprisCustomHud.getCurrentPlayerInfo().metadata.album_art);
+        }
+
+        private void update(AlbumArt albumArt) {
+            id = albumArt.getId();
+            height = formatted ? (int) (width * albumArt.getHeight() / albumArt.getWidth()) : width;
         }
 
         @Override
         public void render(GuiGraphics context, RenderPiece piece) {
-            AlbumArtManager.Tuple<ResourceLocation, Float> info = AlbumArtManager.getInfo(MprisCustomHud.getCurrentPlayerInfo().busname);
-            int width = flags.formatted ? (int) (height * info.getB()) : height;
-            context.blit(RenderPipelines.GUI_TEXTURED, info.getA(), piece.x, piece.y, 0, 0, width, height, width, height);
+            if (System.currentTimeMillis() % 20 == 0) {
+                update(MprisCustomHud.getCurrentPlayerInfo().metadata.album_art);
+            }
+            rotate(context.pose().pushMatrix(), width, height);
+            context.blit(RenderPipelines.GUI_TEXTURED, id, piece.x + shiftX, piece.y + shiftY, 0, 0, width, height, width, height);
+            context.pose().popMatrix();
         }
-    }
-
-    public static interface AlbumArtElementSupplier {
-        AlbumArtElement run(Flags f);
     }
     //?}
 }

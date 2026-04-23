@@ -53,6 +53,8 @@ public class MprisCustomHud implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         loadConfig();
+        // this is to prevent theoretical missing texture that could
+        // show up in hud if an album art would be unloaded in the middle of a tick
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
             AlbumArtManager.release(client.getTextureManager());
         });
@@ -68,8 +70,13 @@ public class MprisCustomHud implements ClientModInitializer {
                         currentPlayerInfo = player;
                     }
                     players.put(name, player);
-                    AlbumArtManager.loadAlbumArt(name, "");
-                    CompletableFuture.runAsync(() -> AlbumArtManager.loadAlbumArt(name, player.metadata.art_url));
+                    CompletableFuture.runAsync(() -> {
+                        PlayerInfo updatedPlayer = AlbumArtManager.loadAlbumArt(player);
+                        players.put(name, updatedPlayer);
+                        if (player == currentPlayerInfo) {
+                            currentPlayerInfo = updatedPlayer;
+                        }
+                    });
                 }
             }
             ModSupport.register(getStringMap(), getBoolMap(), getNumberMap(), getListMap());
@@ -86,7 +93,7 @@ public class MprisCustomHud implements ClientModInitializer {
     }
 
     public static PlayerInfo getPlayerInfo(String name) {
-        return players.get(busPrefix + name);
+        return players.get(name.length() > 23 ? name : busPrefix + name);
     }
 
     public static PlayerInfo getCurrentPlayerInfo() {
@@ -249,6 +256,7 @@ public class MprisCustomHud implements ClientModInitializer {
         map.put("mpris_times_played", () -> currentPlayerInfo.metadata.times_played);
         map.put("mpris_auto_rating", () -> currentPlayerInfo.metadata.auto_rating);
         map.put("mpris_user_rating", () -> currentPlayerInfo.metadata.user_rating);
+        map.put("mpris_album_color", () -> currentPlayerInfo.metadata.album_art.color);
         return map;
     }
 
@@ -267,8 +275,7 @@ public class MprisCustomHud implements ClientModInitializer {
         @Override
         public void handle(DBus.NameOwnerChanged signal) {
             if (signal.newOwner.isEmpty() && !signal.oldOwner.isEmpty() && players.containsKey(signal.name)) {
-                players.remove(signal.name);
-                AlbumArtManager.loadAlbumArt(signal.name, "");
+                AlbumArtManager.remove(players.remove(signal.name).metadata.album_art);
                 if (signal.name.equals(currentPlayerInfo.busname)) {
                     if (!CONFIG.onlyPreferred) {
                         if (players.containsKey(CONFIG.preferred)) {
@@ -283,7 +290,6 @@ public class MprisCustomHud implements ClientModInitializer {
             } else if (!signal.newOwner.isEmpty() && signal.oldOwner.isEmpty()
                     && signal.name.startsWith(busPrefix)) {
                 PlayerInfo player = PlayerInfo.of(signal.name, false);
-                AlbumArtManager.loadAlbumArt(signal.name, "");
                 players.put(signal.name, player);
                 if (signal.name.equals(CONFIG.preferred)) {
                     currentPlayerInfo = player;
@@ -328,7 +334,12 @@ public class MprisCustomHud implements ClientModInitializer {
                             currentPlayerInfo = player;
                         }
                         if (!player.metadata.art_url.equals(art_url)) {
-                            AlbumArtManager.loadAlbumArt(busName, player.metadata.art_url);
+                            player = AlbumArtManager.loadAlbumArt(player);
+                            if (players.containsKey(busName)) {
+                                if (players.put(busName, player) == currentPlayerInfo) {
+                                    currentPlayerInfo = player;
+                                }
+                            }
                         }
                         break;
                     }

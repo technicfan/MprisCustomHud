@@ -1,6 +1,7 @@
 package technicfan.mpriscustomhud.mod_support;
 
 import java.util.List;
+
 import java.util.HashMap;
 
 import net.minecraft.client.DeltaTracker;
@@ -27,7 +28,8 @@ import io.github.ngspace.hudder.data_management.api.VariableTypes;
 //?}
 //?}
 import technicfan.mpriscustomhud.MprisCustomHud;
-import technicfan.mpriscustomhud.AlbumArtManager;
+import technicfan.mpriscustomhud.PlayerInfo;
+import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 
 public class HudderSupport {
     public static void register(
@@ -91,11 +93,11 @@ public class HudderSupport {
         //?}
 
         FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {
-            AlbumArtManager.Tuple<ResourceLocation, Float> info = AlbumArtManager.getInfo(args[0].asString());
-            if (args.length == 6 && info == AlbumArtManager.missing && !args[5].asBoolean()) {
+            PlayerInfo player = MprisCustomHud.getPlayerInfo(args[0].asString());
+            if (player == null || (args.length == 6 && player.metadata.album_art.isEmpty() && !args[5].asBoolean())) {
                 return false;
             } else {
-                ui.addUIElement(new AlbumArtElement(info, args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt()));
+                ui.addUIElement(new AlbumArtElement(player.metadata.album_art, args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt()));
                 return true;
             }
         }, "mpris_album_art");
@@ -118,12 +120,23 @@ public class HudderSupport {
         public final int height;
         public final ResourceLocation id;
 
-        public AlbumArtElement(AlbumArtManager.Tuple<ResourceLocation, Float> info, int x, int y, int width, int height) {
+        public AlbumArtElement(AlbumArt albumArt, int x, int y, int width, int height) {
             this.x = x;
             this.y = y;
-            this.height = height;
-            this.width = width == 0 ? (int) (height * info.getB()) : width;
-            this.id = info.getA();
+            if (width == 0 && height == 0) {
+                this.height = albumArt.getHeight();
+                this.width = albumArt.getWidth();
+            } else if (width == 0) {
+                this.height = height;
+                this.width = (int) (height * albumArt.getWidth() / albumArt.getHeight());
+            } else if (height == 0) {
+                this.width = width;
+                this.height = (int) (width * albumArt.getHeight() / albumArt.getWidth());
+            } else {
+                this.height = height;
+                this.width = width;
+            }
+            this.id = albumArt.getId();
         }
 
         @Override
