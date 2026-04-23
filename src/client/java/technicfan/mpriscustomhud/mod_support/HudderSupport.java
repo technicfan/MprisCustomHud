@@ -28,7 +28,6 @@ import io.github.ngspace.hudder.data_management.api.VariableTypes;
 //?}
 //?}
 import technicfan.mpriscustomhud.MprisCustomHud;
-import technicfan.mpriscustomhud.PlayerInfo;
 import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 
 public class HudderSupport {
@@ -92,14 +91,17 @@ public class HudderSupport {
         */
         //?}
 
-        FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {
-            PlayerInfo player = MprisCustomHud.getPlayerInfo(args[0].asString());
-            if (player == null || (args.length == 6 && player.metadata.album_art.isEmpty() && !args[5].asBoolean())) {
-                return false;
+        FunctionAndConsumerAPI.getInstance().registerConsumer((ui, c, args) -> {
+            AlbumArt albumArt;
+            Object id = args[0].asType(Object.class);
+            if (id instanceof AlbumArt art) {
+                albumArt = art;
+            } else if (id instanceof String name) {
+                albumArt = MprisCustomHud.getPlayerInfoOrEmpty(name).metadata.album_art;
             } else {
-                ui.addUIElement(new AlbumArtElement(player.metadata.album_art, args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt()));
-                return true;
+                throw new IllegalArgumentException("First argument has to be either String or AlbumArt");
             }
+            ui.addUIElement(new AlbumArtElement(albumArt, args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt()));
         }, "mpris_album_art");
 
         FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {

@@ -3,6 +3,7 @@ package technicfan.mpriscustomhud;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
 import technicfan.mpriscustomhud.mod_support.ModSupport;
 
 import java.io.File;
@@ -38,13 +39,12 @@ public class MprisCustomHud implements ClientModInitializer {
 
     private static final long microToMs = 1000L;
     private static final String busPrefix = "org.mpris.MediaPlayer2.";
-    private static final PlayerInfo emptyPlayerInfo = new PlayerInfo();
 
     protected static DBus dbus;
     protected static DBusConnection conn;
     private static AutoCloseable nameHandler, propertiesHandler, seekedHandler;
     private static ConcurrentHashMap<String, PlayerInfo> players = new ConcurrentHashMap<>();
-    private static PlayerInfo currentPlayerInfo = emptyPlayerInfo;
+    private static PlayerInfo currentPlayerInfo = PlayerInfo.EMPTY;
 
     public static interface Function<T> {
         T run();
@@ -53,6 +53,7 @@ public class MprisCustomHud implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         loadConfig();
+        AlbumArtManager.init(Minecraft.getInstance());
         // this is to prevent theoretical missing texture that could
         // show up in hud if an album art would be unloaded in the middle of a tick
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
@@ -96,6 +97,10 @@ public class MprisCustomHud implements ClientModInitializer {
         return players.get(name.length() > 23 ? name : busPrefix + name);
     }
 
+    public static PlayerInfo getPlayerInfoOrEmpty(String name) {
+        return players.getOrDefault(name.length() > 23 ? name : busPrefix + name, PlayerInfo.EMPTY);
+    }
+
     public static PlayerInfo getCurrentPlayerInfo() {
         return currentPlayerInfo;
     }
@@ -114,6 +119,10 @@ public class MprisCustomHud implements ClientModInitializer {
         LOGGER.info("[MprisCustomHud] {}", msg);
     }
 
+    public static void warn(String msg) {
+        LOGGER.warn("[MprisCustomHud] {}", msg);
+    }
+
     protected static void setPreferred(String preferred) {
         if (preferred.equals("None")) {
             preferred = "";
@@ -127,7 +136,7 @@ public class MprisCustomHud implements ClientModInitializer {
                     cyclePlayers();
             } else {
                 if (CONFIG.onlyPreferred) {
-                    currentPlayerInfo = emptyPlayerInfo;
+                    currentPlayerInfo = PlayerInfo.EMPTY;
                 }
             }
             saveConfig();
@@ -142,7 +151,7 @@ public class MprisCustomHud implements ClientModInitializer {
                     currentPlayerInfo = players.get(CONFIG.preferred);
                 } else {
                     if (CONFIG.onlyPreferred) {
-                        currentPlayerInfo = emptyPlayerInfo;
+                        currentPlayerInfo = PlayerInfo.EMPTY;
                     } else {
                         cyclePlayers();
                     }
@@ -193,7 +202,7 @@ public class MprisCustomHud implements ClientModInitializer {
             int index = keys.indexOf(currentPlayerInfo.busname);
             currentPlayerInfo = players.get(keys.get(index + 1 == keys.size() ? 0 : index + 1));
         } else {
-            currentPlayerInfo = emptyPlayerInfo;
+            currentPlayerInfo = PlayerInfo.EMPTY;
         }
     }
 
@@ -240,6 +249,7 @@ public class MprisCustomHud implements ClientModInitializer {
         HashMap<String, Function<Boolean>> map = new HashMap<>();
         map.put("mpris_shuffle", () -> currentPlayerInfo.shuffle);
         map.put("mpris_playing", () -> currentPlayerInfo.playing);
+        map.put("mpris_has_album_art", () -> currentPlayerInfo.metadata.album_art.exists());
         return map;
     }
 
@@ -256,6 +266,8 @@ public class MprisCustomHud implements ClientModInitializer {
         map.put("mpris_times_played", () -> currentPlayerInfo.metadata.times_played);
         map.put("mpris_auto_rating", () -> currentPlayerInfo.metadata.auto_rating);
         map.put("mpris_user_rating", () -> currentPlayerInfo.metadata.user_rating);
+        map.put("mpris_album_width", () -> currentPlayerInfo.metadata.album_art.width);
+        map.put("mpris_album_height", () -> currentPlayerInfo.metadata.album_art.height);
         map.put("mpris_album_color", () -> currentPlayerInfo.metadata.album_art.color);
         return map;
     }
@@ -284,7 +296,7 @@ public class MprisCustomHud implements ClientModInitializer {
                             cyclePlayers();
                         }
                     } else {
-                        currentPlayerInfo = emptyPlayerInfo;
+                        currentPlayerInfo = PlayerInfo.EMPTY;
                     }
                 }
             } else if (!signal.newOwner.isEmpty() && signal.oldOwner.isEmpty()

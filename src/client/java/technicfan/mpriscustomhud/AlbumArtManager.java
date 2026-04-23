@@ -2,14 +2,23 @@ package technicfan.mpriscustomhud;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.imageio.ImageIO;
 
 import com.mojang.blaze3d.platform.NativeImage;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
@@ -17,35 +26,98 @@ import net.minecraft.resources.ResourceLocation;
 import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 
 public class AlbumArtManager {
-    private static Minecraft client = Minecraft.getInstance();
+    private static Minecraft minecraft;
+    private static final int maxCacheSize = 16;
+    private static final File cacheDir = FabricLoader.getInstance().getGameDir().resolve("cache").resolve(MprisCustomHud.MOD_ID).toFile();
     private static HashSet<ResourceLocation> toRemove = new HashSet<>();
+    private static ConcurrentHashMap<String, File> cache = new ConcurrentHashMap<>();
+
+    protected static void init(Minecraft client) {
+        minecraft = client;
+        if (!cacheDir.exists()) {
+            cacheDir.mkdirs();
+        } else {
+            for (File f : cacheDir.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File pathname) {
+                    return pathname.isFile() && pathname.getName().endsWith(".png");
+                }
+            })) {
+                cache.put(f.getName(), f);
+            }
+        }
+    }
 
     protected static PlayerInfo loadAlbumArt(PlayerInfo player) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, player.busname.substring(23));
         if (!player.metadata.art_url.isEmpty()) {
             try {
-                BufferedImage data = ImageIO.read(URI.create(player.metadata.art_url).toURL());
+                BufferedImage data = null;
+                boolean cached = false;
+                String cacheName = getCacheName(player.metadata.art_url);
+                if (cacheName != null && cache.containsKey(cacheName)) {
+                    try {
+                        data = ImageIO.read(cache.get(cacheName).toURI().toURL());
+                        cached = true;
+                        MprisCustomHud.log("wow");
+                    } catch (IOException e) {}
+                }
+                if (data == null) {
+                    data = ImageIO.read(URI.create(player.metadata.art_url).toURL());
+                }
                 if (data != null) {
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
                     ImageIO.write(data, "PNG", output);
                     NativeImage image = NativeImage.read(output.toByteArray());
-                    client.executeBlocking(() -> {
-                        client.getTextureManager().register(id, new DynamicTexture(id::getPath, image));
+                    minecraft.executeBlocking(() -> {
+                        minecraft.getTextureManager().register(id, new DynamicTexture(id::getPath, image));
                     });
                     toRemove.remove(id);
+                    if (!cached) {
+                        addToCache(player.metadata.art_url, data);
+                    }
                     return player.update(new AlbumArt(id, dominantColor(image), image.getWidth(), image.getHeight()));
                 }
             } catch (IOException e) {
-                MprisCustomHud.log("Failed to load album image");
-                MprisCustomHud.LOGGER.warn(e.toString(), e.fillInStackTrace());
+                MprisCustomHud.warn("Failed to load album image for " + player.name);
             }
         }
         toRemove.add(id);
-        return player.update(AlbumArt.empty());
+        return player.update(AlbumArt.EMPTY);
+    }
+
+    private static void addToCache(String url, BufferedImage image) {
+        try {
+            String name = getCacheName(url);
+            if (name != null) {
+                while (cache.size() > maxCacheSize) {
+                    Optional<File> oldest =  cache.values().stream().min((a, b) -> a.lastModified() > b.lastModified() ? 1 : -1);
+                    if (oldest.isPresent() && oldest.get().delete()) {
+                        cache.remove(oldest.get().getName());
+                    }
+                }
+                File file = new File(cacheDir, name);
+                if (file.createNewFile()) {
+                    ImageIO.write(image, "PNG", file);
+                }
+            }
+        } catch (IOException e) {
+            MprisCustomHud.warn("Failed to write album image to cache");
+        }
+    }
+
+    private static String getCacheName(String url) {
+        try {
+            MessageDigest md5 = MessageDigest.getInstance("MD5");
+            md5.update(StandardCharsets.UTF_8.encode(url));
+            return String.format("%032x.png", new BigInteger(1, md5.digest()));
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
     }
 
     protected static void remove(AlbumArt albumArt) {
-        if (!albumArt.isEmpty()) {
+        if (albumArt.exists()) {
             toRemove.add(albumArt.getId());
         }
     }
@@ -61,10 +133,11 @@ public class AlbumArtManager {
         int[] colorGroups = new int[512];
         for (int rgb : image.getPixels()) {
             // set all bits 0 except for 3 per color (e0_16 = 1110 0000_2)
-            rgb &= 0xffe0e0e0;
+            rgb &= 0x00e0e0e0;
             // extract the 3bit and put them at the right place for each color
             // then add one to the counter of that color
-            colorGroups[(rgb & 0xff0000) >> 15 | (rgb & 0x00ff00) >> 10 | (rgb & 0x0000ff) >> 5]++;
+            // this creates 512 (256 >> 5 (/32) = 8; 8^3 = 512) groups a rgb color can land in
+            colorGroups[rgb >> 15 | (rgb & 0x00ff00) >> 10 | (rgb & 0x0000ff) >> 5]++;
         }
         // find the group that appeared most
         int result = 0, max = colorGroups[0];

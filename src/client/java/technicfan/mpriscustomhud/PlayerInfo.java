@@ -15,6 +15,7 @@ import org.freedesktop.dbus.types.Variant;
 import net.minecraft.resources.ResourceLocation;
 
 public class PlayerInfo {
+    public final static PlayerInfo EMPTY = new PlayerInfo();
     private final static long microToMs = 1000L;
     private final long startPosition, startTime;
     private final boolean existing;
@@ -82,7 +83,7 @@ public class PlayerInfo {
         this.metadata = metadata;
     }
 
-    protected PlayerInfo() {
+    private PlayerInfo() {
         this("", "", "", false, false, false, 0, 0, 0, 0, null, new Metadata());
     }
 
@@ -222,14 +223,14 @@ public class PlayerInfo {
     }
 
     public boolean isEmpty() {
-        return busname.isEmpty();
+        return this == EMPTY;
     }
 
     public static class AlbumArt {
-        private static final AlbumArt empty = new AlbumArt(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, "textures/missing.png"), 0, 16, 16);
+        public static final AlbumArt EMPTY = new AlbumArt(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, "textures/missing.png"), 0, 256, 256);
         private final ResourceLocation id;
-        private final int width;
-        private final int height;
+        public final int width;
+        public final int height;
         public final int color;
 
         public AlbumArt(ResourceLocation id, int color, int width, int height) {
@@ -237,10 +238,6 @@ public class PlayerInfo {
             this.color = color;
             this.width = width;
             this.height = height;
-        }
-
-        public static AlbumArt empty() {
-            return empty;
         }
 
         public ResourceLocation getId() {
@@ -255,8 +252,8 @@ public class PlayerInfo {
             return height;
         }
 
-        public boolean isEmpty() {
-            return this == empty;
+        public boolean exists() {
+            return this != EMPTY;
         }
     }
 
@@ -279,7 +276,7 @@ public class PlayerInfo {
         }
 
         Metadata() {
-            this(Map.of(), AlbumArt.empty);
+            this(Map.of(), AlbumArt.EMPTY);
         }
 
         Metadata(Metadata metadata, AlbumArt albumArt) {
