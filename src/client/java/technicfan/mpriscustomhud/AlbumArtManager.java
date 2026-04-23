@@ -24,6 +24,7 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.ResourceLocation;
 import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
+import technicfan.mpriscustomhud.PlayerInfo.Metadata;
 
 public class AlbumArtManager {
     private static Minecraft minecraft;
@@ -54,7 +55,7 @@ public class AlbumArtManager {
             try {
                 BufferedImage data = null;
                 boolean cached = false;
-                String cacheName = getCacheName(player.metadata.art_url);
+                String cacheName = getCacheName(player.metadata);
                 if (cacheName != null && cache.containsKey(cacheName)) {
                     try {
                         data = ImageIO.read(cache.get(cacheName).toURI().toURL());
@@ -73,7 +74,7 @@ public class AlbumArtManager {
                     });
                     toRemove.remove(id);
                     if (!cached) {
-                        addToCache(player.metadata.art_url, data);
+                        addToCache(cacheName, data);
                     }
                     return player.update(new AlbumArt(id, dominantColor(image), image.getWidth(), image.getHeight()));
                 }
@@ -90,9 +91,8 @@ public class AlbumArtManager {
         }
     }
 
-    private static void addToCache(String url, BufferedImage image) {
+    private static void addToCache(String name, BufferedImage image) {
         try {
-            String name = getCacheName(url);
             if (name != null) {
                 if (cache.mappingCount() >= maxCacheSize) {
                     removeOldest();
@@ -106,10 +106,10 @@ public class AlbumArtManager {
         } catch (IOException e) {}
     }
 
-    private static String getCacheName(String url) {
+    private static String getCacheName(Metadata metadata) {
         try {
             MessageDigest md5 = MessageDigest.getInstance("MD5");
-            md5.update(StandardCharsets.UTF_8.encode(url));
+            md5.update(StandardCharsets.UTF_8.encode(metadata.track + metadata.trackid + metadata.art_url));
             return String.format("%032x.png", new BigInteger(1, md5.digest()));
         } catch (NoSuchAlgorithmException e) {
             return null;
