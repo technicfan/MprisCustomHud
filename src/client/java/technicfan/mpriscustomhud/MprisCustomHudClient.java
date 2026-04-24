@@ -42,7 +42,9 @@ public class MprisCustomHudClient implements ClientModInitializer {
                         .then(ClientCommandManager.literal("cycle")
                                 .executes(MprisCustomHudClient::cyclePlayers))
                         .then(ClientCommandManager.literal("refresh")
-                                .executes(MprisCustomHudClient::refreshPlayer))
+                                .executes(MprisCustomHudClient::refresh))
+                        .then(ClientCommandManager.literal("clearCache")
+                                .executes(MprisCustomHudClient::clearCache))
                         .then(ClientCommandManager.literal("playpause")
                                 .executes(MprisCustomHudClient::playPausePlayer))
                         .then(ClientCommandManager.literal("play")
@@ -111,7 +113,14 @@ public class MprisCustomHudClient implements ClientModInitializer {
         });
     }
 
-    private static int refreshPlayer(CommandContext<FabricClientCommandSource> commandContext) {
+    private static int clearCache(CommandContext<FabricClientCommandSource> commandContext) {
+        CompletableFuture.runAsync(() -> {
+            AlbumArtManager.clear();;
+        });
+        return 1;
+    }
+
+    private static int refresh(CommandContext<FabricClientCommandSource> commandContext) {
         CompletableFuture.runAsync(() -> {
             MprisCustomHud.refresh();
         });

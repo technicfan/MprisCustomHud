@@ -1,6 +1,7 @@
 package technicfan.mpriscustomhud;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileFilter;
@@ -68,9 +69,13 @@ public class AlbumArtManager {
                 if (data != null) {
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
                     ImageIO.write(data, "PNG", output);
-                    NativeImage image = NativeImage.read(output.toByteArray());
+                    NativeImage image = NativeImage.read(new ByteArrayInputStream(output.toByteArray()));
                     minecraft.executeBlocking(() -> {
-                        minecraft.getTextureManager().register(id, new DynamicTexture(id::getPath, image));
+                        minecraft.getTextureManager().register(id, new DynamicTexture(
+                            //? if >=1.21.2 {
+                            id::getPath,
+                            //?}
+                        image));
                     });
                     toRemove.remove(id);
                     if (!cached) {
@@ -126,12 +131,23 @@ public class AlbumArtManager {
         toRemove.forEach(id -> {
             manager.release(id);
         });
-        toRemove.removeIf(id -> true);
+        toRemove.clear();;
+    }
+
+    protected static void clear() {
+        for (File f : cache.values()) {
+            f.delete();
+        }
+        cache.clear();
     }
 
     private static int dominantColor(NativeImage image) {
         int[] colorGroups = new int[512];
+        //? if >=1.21.2 {
         for (int rgb : image.getPixels()) {
+        //?} else {
+        /*for (int rgb : image.getPixelsRGBA()) {*/
+        //?}
             // set all bits 0 except for 3 per color (e0_16 = 1110 0000_2)
             rgb &= 0x00e0e0e0;
             // extract the 3bit and put them at the right place for each color
