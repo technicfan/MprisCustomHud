@@ -102,12 +102,15 @@ public class CustomHudSupport {
     }
 
     private static HudElement getHudElement(String k, String v, ParseContext c) {
-        if (v.startsWith(k)) {
-            String[] parts = v.split(" ");
-            Flags f = Flags.parse(c.profile().name, c.line(), parts);
-            parts = parts[0].split(":");
-            String name = parts.length >= 2 ? parts[1] : null;
-            return getAttribute(null, MprisCustomHud::getCurrentPlayerInfo, name, f);
+        String[] parts = v.split(" ")[0].split(":");
+        if (parts[0].equals(k)) {
+            Flags f = Flags.parse(c.profile().name, c.line(), v.split(" "));
+            String attr = parts.length >= 2 ? parts[1] : null;
+            if (parts.length <= 2) {
+                return getAttribute(null, MprisCustomHud::getCurrentPlayerInfo, attr, f);
+            } else {
+                return getAttribute(null, () -> MprisCustomHud.getPlayerInfoOrEmpty(parts[1]), parts[2], f);
+            }
         } else {
             return null;
         }
@@ -118,7 +121,7 @@ public class CustomHudSupport {
         //? if <=1.21.11 {
         loadMaps();
         CustomHudRegistry.registerList("mpris_players", "p", MprisCustomHud::getPlayers, (pid, sup, name, flags, context) -> getAttribute(pid, sup, name, flags));
-        CustomHudRegistry.registerParser("mpris_player_info", (v, c) -> getHudElement("mpris_player_info", v, c));
+        CustomHudRegistry.registerParser("mpris_player", (v, c) -> getHudElement("mpris_player", v, c));
 
         for (String key : listmap.keySet()) {
             CustomHudRegistry.registerList(key, key.substring(7, 10), () -> listmap.get(key).apply(null), (pid, sup, name, flags, context) -> Flags.wrap(new Str(sup, s -> s), flags));
@@ -131,12 +134,14 @@ public class CustomHudSupport {
     //? if <=1.21.11 {
     private static class AlbumArtElement extends IconElement {
         private final boolean formatted;
+        private final int drawWidth;
         private final Supplier<PlayerInfo> sup;
 
         private AlbumArtElement(UUID pid, Supplier<PlayerInfo> sup, Flags flags) {
             super(flags, 10);
             this.formatted = flags.formatted;
             this.sup = sup;
+            this.drawWidth = (int) (9 * scale);
             this.providerID = pid;
         }
 
@@ -147,20 +152,27 @@ public class CustomHudSupport {
                 return;
             }
             ResourceLocation id = albumArt.getId();
-            int height = formatted ? (int) (width * albumArt.getHeight() / albumArt.getWidth()) : width;
+            int height = formatted ? (int) (drawWidth * albumArt.getHeight() / albumArt.getWidth()) : drawWidth;
+            float y = piece.y;
+            if (!referenceCorner)
+                y -= (drawWidth-9)/2;
 
             //? if >=1.21.6 {
-            rotate(context.pose().pushMatrix(), width, height);
-            context.blit(RenderPipelines.GUI_TEXTURED, id, piece.x + shiftX, piece.y + shiftY, 0, 0, width, height, width, height);
+            context.pose().pushMatrix();
+            rotate(context.pose(), drawWidth, height);
+            context.pose().translate(piece.x + shiftX + 0.6f, y + shiftY - 1);
+            context.blit(RenderPipelines.GUI_TEXTURED, id, 0, 0, 0, 0, drawWidth, height, drawWidth, height);
             context.pose().popMatrix();
             //?} else {
             /*com.mojang.blaze3d.vertex.PoseStack matrices = context.pose();
             matrices.pushPose();
-            rotate(matrices, width, height);*/
+            matrices.translate(piece.x + shiftX + 0.6f, y + shiftY - 1, 0);
+            rotate(matrices, drawWidth, height);
             //? if >=1.21.2 {
-            /*context.blit(net.minecraft.client.renderer.RenderType::guiTexturedOverlay, id, piece.x + shiftX, piece.y + shiftY, 0, 0, width, height, width, height);*/
+            context.blit(net.minecraft.client.renderer.RenderType::guiTexturedOverlay, id, 0, 0, 0, 0, drawWidth, height, drawWidth, height);
             //?} else
-            /*context.blit(id, piece.x + shiftX, piece.y + shiftY, 0, 0, width, height, width, height);*/
+            context.blit(id, 0, 0, 0, 0, drawWidth, height, drawWidth, height);
+            matrices.popPose();*/
             //?}
         }
     }

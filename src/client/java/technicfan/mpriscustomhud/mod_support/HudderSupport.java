@@ -37,13 +37,13 @@ public class HudderSupport {
         DataVariableRegistry.registerVariable(k -> true, VariableTypes.BOOLEAN, "has_mpris");
         DataVariableRegistry.registerVariable(k ->
             MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? null : MprisCustomHud.getCurrentPlayerInfo(),
-                VariableTypes.OBJECT, "mpris_player_info");
+                VariableTypes.OBJECT, "mpris_player");
         DataVariableRegistry.registerVariable(k -> MprisCustomHud.getPlayers(), VariableTypes.OBJECT, "mpris_players");
         //?} else {
         /*
         ObjectDataAPI.addObjectGetter(k -> k.equals("has_mpris") ? true : null);
         ObjectDataAPI.addObjectGetter(k ->
-            k.equals("mpris_player_info") && !MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? MprisCustomHud.getCurrentPlayerInfo() : null);
+            k.equals("mpris_player") && !MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? MprisCustomHud.getCurrentPlayerInfo() : null);
         ObjectDataAPI.addObjectGetter(k -> k.equals("mpris_players") ? MprisCustomHud.getPlayers() : null);*/
         //?}
 
