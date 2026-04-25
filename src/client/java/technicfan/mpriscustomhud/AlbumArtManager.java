@@ -148,7 +148,7 @@ public class AlbumArtManager {
         //?} else {
         /*for (int rgb : image.getPixelsRGBA()) {*/
         //?}
-            // set all bits 0 except for 6 per color (f8_16 = 1111 1000_2)
+            // set all bits 0 except for 5 per color (f8_16 = 1111 1000_2)
             rgb &= 0x00f8f8f8;
             // extract the first 5bit and put them at the right place for each color
             // then add one to the counter of that color
