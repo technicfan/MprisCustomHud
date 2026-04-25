@@ -142,18 +142,18 @@ public class AlbumArtManager {
     }
 
     private static int dominantColor(NativeImage image) {
-        int[] colorGroups = new int[512];
+        int[] colorGroups = new int[32*32*32];
         //? if >=1.21.2 {
         for (int rgb : image.getPixels()) {
         //?} else {
         /*for (int rgb : image.getPixelsRGBA()) {*/
         //?}
-            // set all bits 0 except for 3 per color (e0_16 = 1110 0000_2)
-            rgb &= 0x00e0e0e0;
-            // extract the 3bit and put them at the right place for each color
+            // set all bits 0 except for 6 per color (f8_16 = 1111 1000_2)
+            rgb &= 0x00f8f8f8;
+            // extract the first 5bit and put them at the right place for each color
             // then add one to the counter of that color
-            // this creates 512 (256 >> 5 (/32) = 8; 8^3 = 512) groups a rgb color can land in
-            colorGroups[rgb >> 15 | (rgb & 0x00ff00) >> 10 | (rgb & 0x0000ff) >> 5]++;
+            // this creates many (256 >> 3 (/8) = 32 => 32^3) groups a rgb color can land in
+            colorGroups[rgb >> 9 | (rgb & 0x00ff00) >> 6 | (rgb & 0x0000ff) >> 3]++;
         }
         // find the group that appeared most
         int result = 0, max = colorGroups[0];
@@ -164,6 +164,6 @@ public class AlbumArtManager {
             }
         }
         // convert back to 8bit per color
-        return (result & 0x1c0) << 15 | (result & 0x38) << 10 | (result & 0x7) << 5;
+        return (result & 0xfc00) << 9 | (result & 0x03e0) << 6 | (result & 0x001f) << 3;
     }
 }
