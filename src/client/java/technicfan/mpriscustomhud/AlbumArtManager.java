@@ -26,6 +26,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 import technicfan.mpriscustomhud.PlayerInfo.Metadata;
 
@@ -150,11 +151,11 @@ public class AlbumArtManager {
 
         for (int x = 0; x < img.getWidth(); x += step) {
             for (int y = 0; y < img.getHeight(); y += step) {
-                // ? if >=1.21.2 {
+                //? if >=1.21.2 {
                 int rgb = img.getPixel(x, y);
-                // ?} else {
-                /* int rgb = img.getPixelRGBA(x, y); */
-                // ?}
+                //?} else {
+                /*int rgb = img.getPixelRGBA(x, y);*/
+                //?}
 
                 int alpha = (rgb >>> 24) & 0xff;
                 if (alpha < 200) {
@@ -192,8 +193,8 @@ public class AlbumArtManager {
         }
 
         double weight = Math.max(best[0], 1.0);
-        return (Math.clamp((int) (best[1] / weight), 0, 255) << 16) |
-                (Math.clamp((int) (best[2] / weight), 0, 255) << 8) |
-                Math.clamp((int) (best[3] / weight), 0, 255);
+        return (Mth.clamp((int) (best[1] / weight), 0, 255) << 16) |
+                (Mth.clamp((int) (best[2] / weight), 0, 255) << 8) |
+                Mth.clamp((int) (best[3] / weight), 0, 255);
     }
 }
