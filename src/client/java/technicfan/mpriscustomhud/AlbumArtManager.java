@@ -145,7 +145,7 @@ public class AlbumArtManager {
     }
 
     private static int dominantColor(NativeImage img) {
-        HashMap<Integer, double[]> buckets = new HashMap<>(64);
+        HashMap<Integer, double[]> buckets = new HashMap<>();
         int step = Math.max(1, Math.max(img.getWidth(), img.getHeight()) / 64);
         float[] hsb = new float[3];
 
