@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
@@ -99,7 +100,7 @@ public class MprisCustomHud implements ClientModInitializer {
     }
 
     public static PlayerInfo getPlayerInfoOrEmpty(String name) {
-        return name != null ? players.getOrDefault(name.length() > 23 ? name : busPrefix + name, PlayerInfo.EMPTY) : currentPlayerInfo;
+        return players.getOrDefault(name.length() > 23 ? name : busPrefix + name, PlayerInfo.EMPTY);
     }
 
     public static PlayerInfo getCurrentPlayerInfo() {
@@ -232,14 +233,14 @@ public class MprisCustomHud implements ClientModInitializer {
         }
     }
 
-    private static HashMap<String, Function<String, List<String>>> getListMap() {
-        HashMap<String, Function<String, List<String>>> map = new HashMap<>();
-        map.put("mpris_artists", s -> getPlayerInfoOrEmpty(s).metadata.artists);
-        map.put("mpris_album_artists", s -> getPlayerInfoOrEmpty(s).metadata.album_artists);
-        map.put("mpris_comments", s -> getPlayerInfoOrEmpty(s).metadata.comments);
-        map.put("mpris_composers", s -> getPlayerInfoOrEmpty(s).metadata.composers);
-        map.put("mpris_genres", s -> getPlayerInfoOrEmpty(s).metadata.genres);
-        map.put("mpris_lyricists", s -> getPlayerInfoOrEmpty(s).metadata.lyricists);
+    private static HashMap<String, Supplier<List<String>>> getListMap() {
+        HashMap<String, Supplier<List<String>>> map = new HashMap<>();
+        map.put("mpris_artists", () -> currentPlayerInfo.metadata.artists);
+        map.put("mpris_album_artists", () -> currentPlayerInfo.metadata.album_artists);
+        map.put("mpris_comments", () -> currentPlayerInfo.metadata.comments);
+        map.put("mpris_composers", () -> currentPlayerInfo.metadata.composers);
+        map.put("mpris_genres", () -> currentPlayerInfo.metadata.genres);
+        map.put("mpris_lyricists", () -> currentPlayerInfo.metadata.lyricists);
         return map;
     }
 

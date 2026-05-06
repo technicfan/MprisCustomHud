@@ -11,7 +11,6 @@ import com.minenash.customhud.HudElements.icon.IconElement;
 import com.minenash.customhud.HudElements.interfaces.HudElement;
 import com.minenash.customhud.data.Flags;
 import com.minenash.customhud.registry.CustomHudRegistry;
-import com.minenash.customhud.registry.ParseContext;
 import com.minenash.customhud.render.RenderPiece;
 import com.minenash.customhud.HudElements.FuncElements.Bool;
 import com.minenash.customhud.HudElements.FuncElements.Num;
@@ -85,7 +84,7 @@ public class CustomHudSupport {
         }
     }
 
-    private static HudElement getAttribute(UUID pid, Supplier<PlayerInfo> sup, String name, Flags flags) {
+    private static HudElement getPlayerAttribute(UUID pid, Supplier<PlayerInfo> sup, String name, Flags flags) {
         if (name != null) {
             if (name.equals("album_art")) return new AlbumArtElement(pid, sup, flags);
             if (times.containsKey(name)) {
@@ -100,31 +99,28 @@ public class CustomHudSupport {
         }
         return null;
     }
-
-    private static HudElement getHudElement(String k, String v, ParseContext c) {
-        String[] parts = v.split(" ")[0].split(":");
-        if (parts[0].equals(k)) {
-            Flags f = Flags.parse(c.profile().name, c.line(), v.split(" "));
-            String attr = parts.length >= 2 ? parts[1] : null;
-            if (parts.length <= 2) {
-                return getAttribute(null, MprisCustomHud::getCurrentPlayerInfo, attr, f);
-            } else {
-                return getAttribute(null, () -> MprisCustomHud.getPlayerInfoOrEmpty(parts[1]), parts[2], f);
-            }
-        } else {
-            return null;
-        }
-    }
     //?}
 
-    public static void register(HashMap<String, Function<String, List<String>>> listmap) {
+    public static void register(HashMap<String, Supplier<List<String>>> listmap) {
         //? if <=1.21.11 {
         loadMaps();
-        CustomHudRegistry.registerList("mpris_players", "p", MprisCustomHud::getPlayers, (pid, sup, name, flags, context) -> getAttribute(pid, sup, name, flags));
-        CustomHudRegistry.registerParser("mpris_player", (v, c) -> getHudElement("mpris_player", v, c));
+        CustomHudRegistry.registerList("mpris_players", "p", MprisCustomHud::getPlayers, (pid, sup, name, flags, context) -> getPlayerAttribute(pid, sup, name, flags));
+        CustomHudRegistry.registerParser("mpris_player", (v, c) -> {
+            String[] parts = v.split(" ")[0].split(":");
+            if (parts[0].equals("mpris_player")) {
+                Flags f = Flags.parse(c.profile().name, c.line(), v.split(" "));
+                if (parts.length <= 2) {
+                    return getPlayerAttribute(null, MprisCustomHud::getCurrentPlayerInfo, parts.length == 2 ? parts[1] : null, f);
+                } else {
+                    return getPlayerAttribute(null, () -> MprisCustomHud.getPlayerInfoOrEmpty(parts[1]), parts[2], f);
+                }
+            } else {
+                return null;
+            }
+        });
 
         for (String key : listmap.keySet()) {
-            CustomHudRegistry.registerList(key, key.substring(7, 10), () -> listmap.get(key).apply(null), (pid, sup, name, flags, context) -> Flags.wrap(new Str(sup, s -> s), flags));
+            CustomHudRegistry.registerList(key, key.substring(7, 10), () -> listmap.get(key).get(), (pid, sup, name, flags, context) -> Flags.wrap(new Str(sup, s -> s), flags));
         }
 
         MprisCustomHud.log("Registered CustomHud variables");

@@ -1,5 +1,6 @@
 package technicfan.mpriscustomhud;
 
+import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -11,6 +12,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -131,7 +133,7 @@ public class AlbumArtManager {
         toRemove.forEach(id -> {
             manager.release(id);
         });
-        toRemove.clear();;
+        toRemove.clear();
     }
 
     protected static void clear() {
@@ -141,29 +143,57 @@ public class AlbumArtManager {
         cache.clear();
     }
 
-    private static int dominantColor(NativeImage image) {
-        int[] colorGroups = new int[32*32*32];
-        //? if >=1.21.2 {
-        for (int rgb : image.getPixels()) {
-        //?} else {
-        /*for (int rgb : image.getPixelsRGBA()) {*/
-        //?}
-            // set all bits 0 except for 5 per color (f8_16 = 1111 1000_2)
-            rgb &= 0x00f8f8f8;
-            // extract the first 5bit and put them at the right place for each color
-            // then add one to the counter of that color
-            // this creates many (256 >> 3 (/8) = 32 => 32^3) groups a rgb color can land in
-            colorGroups[rgb >> 9 | (rgb & 0x00ff00) >> 6 | (rgb & 0x0000ff) >> 3]++;
-        }
-        // find the group that appeared most
-        int result = 0, max = colorGroups[0];
-        for (int i = 1; i < colorGroups.length; i++) {
-            if (colorGroups[i] > max) {
-                result = i;
-                max = colorGroups[i];
+    private static int dominantColor(NativeImage img) {
+        HashMap<Integer, double[]> buckets = new HashMap<>(64);
+        int step = Math.max(1, Math.max(img.getWidth(), img.getHeight()) / 64);
+        float[] hsb = new float[3];
+
+        for (int x = 0; x < img.getWidth(); x += step) {
+            for (int y = 0; y < img.getHeight(); y += step) {
+                // ? if >=1.21.2 {
+                int rgb = img.getPixel(x, y);
+                // ?} else {
+                /* int rgb = img.getPixelRGBA(x, y); */
+                // ?}
+
+                int alpha = (rgb >>> 24) & 0xff;
+                if (alpha < 200) {
+                    continue;
+                }
+
+                int r = (rgb >>> 16) & 0xff;
+                int g = (rgb >>> 8) & 0xff;
+                int b = rgb & 0xff;
+                Color.RGBtoHSB(r, g, b, hsb);
+
+                if (hsb[2] < 0.2f || hsb[2] > 0.95f || hsb[1] < 0.2f) {
+                    continue;
+                }
+
+                double[] values = buckets.computeIfAbsent(
+                        (int) (hsb[0] * 12f), k -> new double[4]);
+                double weight = hsb[1] * hsb[2];
+                values[0] += weight;
+                values[1] += r * weight;
+                values[2] += g * weight;
+                values[3] += b * weight;
             }
         }
-        // convert back to 8bit per color
-        return (result & 0xfc00) << 9 | (result & 0x03e0) << 6 | (result & 0x001f) << 3;
+
+        if (buckets.isEmpty()) {
+            return 0xff7f7f7f;
+        }
+
+        double[] best = null;
+        for (double[] bucket : buckets.values()) {
+            if (best == null || bucket[0] > best[0]) {
+                best = bucket;
+            }
+        }
+
+        double weight = Math.max(best[0], 1.0);
+        return (Math.clamp((int) (best[1] / weight), 0, 255) << 16) |
+                (Math.clamp((int) (best[2] / weight), 0, 255) << 8) |
+                Math.clamp((int) (best[3] / weight), 0, 255);
     }
 }
