@@ -26,26 +26,55 @@ import io.github.ngspace.hudder.data_management.api.VariableTypes;
 /*import io.github.ngspace.hudder.data_management.ObjectDataAPI;*/
 //?}
 //?}
+import java.util.function.Supplier;
+
 import technicfan.mpriscustomhud.MprisCustomHud;
 import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 //?}
 
 public class HudderSupport {
+    //? if >=1.21.1 {
+    //? if >=1.21.9 {
+    private static VariableTypes.Type<?>[] types = new VariableTypes.Type<?>[]{
+        VariableTypes.STRING, VariableTypes.BOOLEAN,
+        VariableTypes.NUMBER, VariableTypes.OBJECT
+    };
+    //?}
+
+    private static void registerVariable(Supplier<?> supplier, int type, String name) {
+        //? if >=1.21.9 {
+        DataVariableRegistry.registerVariable(k -> supplier.get(), types[type], name);
+        //?} else {
+        /*ObjectDataAPI.addObjectGetter(k -> k.equals(name) ? supplier.get() : null);*/
+        //?}
+    }
+    //?}
+
     public static void register() {
         //? if >=1.21.1 {
-        //? if >=1.21.9 {
-        DataVariableRegistry.registerVariable(k -> true, VariableTypes.BOOLEAN, "has_mpris");
-        DataVariableRegistry.registerVariable(k ->
-            MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? null : MprisCustomHud.getCurrentPlayerInfo(),
-                VariableTypes.OBJECT, "mpris_player");
-        DataVariableRegistry.registerVariable(k -> MprisCustomHud.getPlayers(), VariableTypes.OBJECT, "mpris_players");
-        //?} else {
-        /*
-        ObjectDataAPI.addObjectGetter(k -> k.equals("has_mpris") ? true : null);
-        ObjectDataAPI.addObjectGetter(k ->
-            k.equals("mpris_player") && !MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? MprisCustomHud.getCurrentPlayerInfo() : null);
-        ObjectDataAPI.addObjectGetter(k -> k.equals("mpris_players") ? MprisCustomHud.getPlayers() : null);*/
-        //?}
+        registerVariable(() -> true, 1, "has_mpris");
+        registerVariable(() -> MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? null : MprisCustomHud.getCurrentPlayerInfo(), 3, "mpris_player");
+        registerVariable(() -> MprisCustomHud.getPlayers(), 3, "mpris_players");
+
+        ModSupport.strings.forEach((v, f) -> {
+            registerVariable(() -> ModSupport.nullIfEmpty(f).apply(MprisCustomHud.getCurrentPlayerInfo()), 0, "mpris_" + v);
+        });
+
+        ModSupport.bools.forEach((v, f) -> {
+            registerVariable(() -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 1, "mpris_" + v);
+        });
+
+        ModSupport.numbers.forEach((v, f) -> {
+            registerVariable(() -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 2, "mpris_" + v);
+        });
+
+        ModSupport.times.forEach((v, f) -> {
+            registerVariable(() -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 2, "mpris_" + v);
+        });
+
+        ModSupport.lists.forEach((v, f) -> {
+            registerVariable(f, 3, v);
+        });
 
         FunctionAndConsumerAPI.getInstance().registerConsumer((ui, c, args) -> {
             AlbumArt albumArt;
@@ -60,13 +89,7 @@ public class HudderSupport {
             ui.addUIElement(new AlbumArtElement(albumArt, args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt()));
         }, "mpris_album_art");
 
-        FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> {
-                if (args.length < 1) {
-                    return null;
-                } else {
-                    return MprisCustomHud.getPlayerInfo(args[0].asString());
-                }
-        }, "getPlayerInfo");
+        FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> MprisCustomHud.getPlayerInfo(args[0].asString()), "mpris_player");
 
         MprisCustomHud.log("Registered Hudder variables and functions");
         //?}

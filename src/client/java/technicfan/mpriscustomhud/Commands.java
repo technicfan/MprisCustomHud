@@ -6,7 +6,6 @@ import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 
-import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
@@ -17,44 +16,43 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
-public class MprisCustomHudClient implements ClientModInitializer {
+public class Commands {
     //? if <1.21.9 {
     /*private static final String MOD_CATEGORY
               = String.format("key.category.%s.%s", MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID);*/
     //?} else
     private static final KeyMapping.Category MOD_CATEGORY = KeyMapping.Category.register(ResourceLocation.fromNamespaceAndPath(MprisCustomHud.MOD_ID, MprisCustomHud.MOD_ID));
 
-    @Override
-    public void onInitializeClient() {
+    protected static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
                 ClientCommandManager.literal(MprisCustomHud.MOD_ID)
                         .then(ClientCommandManager.literal("preferred")
                                 .then(ClientCommandManager.argument("preferred", StringArgumentType.string())
                                         .suggests(new PlayerSuggestionProvider())
-                                        .executes(MprisCustomHudClient::updatePreferred))
-                                .executes(MprisCustomHudClient::queryPreferred))
+                                        .executes(Commands::updatePreferred))
+                                .executes(Commands::queryPreferred))
                         .then(ClientCommandManager.literal("onlyPreferred")
                                 .then(ClientCommandManager.argument("onlyPreferred", BoolArgumentType.bool())
-                                        .executes(MprisCustomHudClient::updateOnlyPreferred))
-                                .executes(MprisCustomHudClient::queryOnlyPreferred))
+                                        .executes(Commands::updateOnlyPreferred))
+                                .executes(Commands::queryOnlyPreferred))
                         .then(ClientCommandManager.literal("player")
-                                .executes(MprisCustomHudClient::queryPlayer))
+                                .executes(Commands::queryPlayer))
                         .then(ClientCommandManager.literal("cycle")
-                                .executes(MprisCustomHudClient::cyclePlayers))
+                                .executes(Commands::cyclePlayers))
                         .then(ClientCommandManager.literal("refresh")
-                                .executes(MprisCustomHudClient::refresh))
+                                .executes(Commands::refresh))
                         .then(ClientCommandManager.literal("clearCache")
-                                .executes(MprisCustomHudClient::clearCache))
+                                .executes(Commands::clearCache))
                         .then(ClientCommandManager.literal("playpause")
-                                .executes(MprisCustomHudClient::playPausePlayer))
+                                .executes(Commands::playPausePlayer))
                         .then(ClientCommandManager.literal("play")
-                                .executes(MprisCustomHudClient::playPlayer))
+                                .executes(Commands::playPlayer))
                         .then(ClientCommandManager.literal("pause")
-                                .executes(MprisCustomHudClient::pausePlayer))
+                                .executes(Commands::pausePlayer))
                         .then(ClientCommandManager.literal("next")
-                                .executes(MprisCustomHudClient::nextPlayer))
+                                .executes(Commands::nextPlayer))
                         .then(ClientCommandManager.literal("previous")
-                                .executes(MprisCustomHudClient::previousPlayer))));
+                                .executes(Commands::previousPlayer))));
 
         KeyMapping playPauseBinding = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "mpriscustomhud.key.playpause",

@@ -11,12 +11,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.freedesktop.dbus.connections.impl.DBusConnection;
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder;
@@ -62,7 +59,8 @@ public class MprisCustomHud implements ClientModInitializer {
             conn = DBusConnectionBuilder.forSessionBus().build();
             dbus = conn.getRemoteObject("org.freedesktop.DBus", "/", DBus.class);
             loadPlayers(players);
-            ModSupport.register(getListMap());
+            Commands.register();
+            ModSupport.register();
             // listen for name owner changes to reset the values in case the player
             // terminates
             nameHandler = conn.addSigHandler(NameOwnerChanged.class, new NameOwnerChangedHandler());
@@ -231,17 +229,6 @@ public class MprisCustomHud implements ClientModInitializer {
         } catch (IOException e) {
             LOGGER.error(e.toString(), e.fillInStackTrace());
         }
-    }
-
-    private static HashMap<String, Supplier<List<String>>> getListMap() {
-        HashMap<String, Supplier<List<String>>> map = new HashMap<>();
-        map.put("mpris_artists", () -> currentPlayerInfo.metadata.artists);
-        map.put("mpris_album_artists", () -> currentPlayerInfo.metadata.album_artists);
-        map.put("mpris_comments", () -> currentPlayerInfo.metadata.comments);
-        map.put("mpris_composers", () -> currentPlayerInfo.metadata.composers);
-        map.put("mpris_genres", () -> currentPlayerInfo.metadata.genres);
-        map.put("mpris_lyricists", () -> currentPlayerInfo.metadata.lyricists);
-        return map;
     }
 
     private static class NameOwnerChangedHandler implements DBusSigHandler<DBus.NameOwnerChanged> {

@@ -1,7 +1,5 @@
 package technicfan.mpriscustomhud.mod_support;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -30,52 +28,6 @@ import technicfan.mpriscustomhud.PlayerInfo;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class CustomHudSupport {
     //? if <=1.21.11 {
-    private static HashMap<String, Function<PlayerInfo, String>> strings = new HashMap();
-    private static HashMap<String, Function<PlayerInfo, Boolean>> bools = new HashMap();
-    private static HashMap<String, Function<PlayerInfo, Number>> numbers = new HashMap();
-    private static HashMap<String, Function<PlayerInfo, Number>> times = new HashMap();
-
-    private static void loadMaps() {
-        strings.put("busname", p -> p.busname);
-        strings.put("name", p -> p.name);
-        strings.put("track", p -> p.metadata.track);
-        strings.put("trackid", p -> p.metadata.trackid);
-        strings.put("album", p -> p.metadata.album);
-        strings.put("repeat", p -> p.repeat);
-        strings.put("artist", p -> p.metadata.artist);
-        strings.put("lyrics", p -> p.metadata.lyrics);
-        strings.put("created_at", p -> p.metadata.created_at);
-        strings.put("first_played", p -> p.metadata.first_played);
-        strings.put("last_played", p -> p.metadata.last_played);
-        strings.put("art_url", p -> p.metadata.art_url);
-        strings.put("url", p -> p.metadata.url);
-        bools.put("shuffle", p -> p.shuffle);
-        bools.put("playing", p -> p.playing);
-        bools.put("exists", p -> !p.isEmpty());
-        bools.put("has_album_art", p -> p.metadata.album_art.exists());
-        numbers.put("rate", p -> p.rate);
-        numbers.put("volume", p -> p.volume);
-        numbers.put("bpm", p -> p.metadata.bpm);
-        numbers.put("disc", p -> p.metadata.disc);
-        numbers.put("number", p -> p.metadata.number);
-        numbers.put("times_played", p -> p.metadata.times_played);
-        numbers.put("auto_rating", p -> p.metadata.auto_rating);
-        numbers.put("user_rating", p -> p.metadata.user_rating);
-        numbers.put("album_width", p -> p.metadata.album_art.width);
-        numbers.put("album_height", p -> p.metadata.album_art.height);
-        numbers.put("album_color", p -> p.metadata.album_art.color);
-        times.put("progress", p -> p.progress());
-        times.put("duration", p -> p.metadata.duration);
-        times.put("data_age", p -> p.isEmpty() ? 0 : p.metadata.data_age());
-    }
-
-    private static Function<PlayerInfo, String> nullIfEmpty(Function<PlayerInfo, String> s) {
-        return p -> {
-            String v = s.apply(p);
-            return v.isEmpty() ? null : v;
-        };
-    }
-
     private static HudElement format(Supplier sup, Function<PlayerInfo, Number> s, Flags f) {
         if (f.formatted) {
             return new Str<PlayerInfo>(sup, p -> MprisCustomHud.formatMicro(s.apply(p)));
@@ -87,30 +39,30 @@ public class CustomHudSupport {
     private static HudElement getPlayerAttribute(UUID pid, Supplier<PlayerInfo> sup, String name, Flags flags) {
         if (name != null) {
             if (name.equals("album_art")) return new AlbumArtElement(pid, sup, flags);
-            if (times.containsKey(name)) {
-                return format(sup, times.get(name), flags);
-            } else if (bools.containsKey(name)) {
-                return Flags.wrap(new Bool(sup, bools.get(name)), flags);
-            } else if (numbers.containsKey(name)) {
-                return new Num(sup, numbers.get(name), flags);
-            } else if (strings.containsKey(name)) {
-                return Flags.wrap(new Str(sup, nullIfEmpty(strings.get(name))), flags);
+            if (ModSupport.times.containsKey(name)) {
+                return format(sup, ModSupport.times.get(name), flags);
+            } else if (ModSupport.bools.containsKey(name)) {
+                return Flags.wrap(new Bool(sup, ModSupport.bools.get(name)), flags);
+            } else if (ModSupport.numbers.containsKey(name)) {
+                return new Num(sup, ModSupport.numbers.get(name), flags);
+            } else if (ModSupport.strings.containsKey(name)) {
+                return Flags.wrap(new Str(sup, ModSupport.nullIfEmpty(ModSupport.strings.get(name))), flags);
             }
         }
         return null;
     }
     //?}
 
-    public static void register(HashMap<String, Supplier<List<String>>> listmap) {
+    public static void register() {
         //? if <=1.21.11 {
-        loadMaps();
         CustomHudRegistry.registerList("mpris_players", "p", MprisCustomHud::getPlayers, (pid, sup, name, flags, context) -> getPlayerAttribute(pid, sup, name, flags));
         CustomHudRegistry.registerParser("mpris_player", (v, c) -> {
             String[] parts = v.split(" ")[0].split(":");
-            if (parts[0].equals("mpris_player")) {
+            if (!parts[0].startsWith("mpris_players") && parts[0].startsWith("mpris_")) {
+                parts[0] = parts[0].substring(6);
                 Flags f = Flags.parse(c.profile().name, c.line(), v.split(" "));
-                if (parts.length <= 2) {
-                    return getPlayerAttribute(null, MprisCustomHud::getCurrentPlayerInfo, parts.length == 2 ? parts[1] : null, f);
+                if (parts.length <= 2 || !parts[0].equals("player")) {
+                    return getPlayerAttribute(null, MprisCustomHud::getCurrentPlayerInfo, parts.length == 2 ? parts[1] : parts[0].equals("player") ? null : parts[0], f);
                 } else {
                     return getPlayerAttribute(null, () -> MprisCustomHud.getPlayerInfoOrEmpty(parts[1]), parts[2], f);
                 }
@@ -119,9 +71,9 @@ public class CustomHudSupport {
             }
         });
 
-        for (String key : listmap.keySet()) {
-            CustomHudRegistry.registerList(key, key.substring(7, 10), () -> listmap.get(key).get(), (pid, sup, name, flags, context) -> Flags.wrap(new Str(sup, s -> s), flags));
-        }
+        ModSupport.lists.forEach((v, f) -> {
+            CustomHudRegistry.registerList(v, v.substring(7, 10), () -> f.get(), (pid, sup, name, flags, context) -> Flags.wrap(new Str(sup, s -> s), flags));
+        });
 
         MprisCustomHud.log("Registered CustomHud variables");
         //?}
