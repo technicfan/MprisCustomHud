@@ -148,23 +148,30 @@ public class AlbumArtManager {
         HashMap<Integer, double[]> buckets = new HashMap<>();
         int step = Math.max(1, Math.max(img.getWidth(), img.getHeight()) / 64);
         float[] hsb = new float[3];
+        //? if >=1.21.2 {
+        int offset = 0;
+        //?} else {
+        /*int offset = 16;*/
+        //?}
 
         for (int x = 0; x < img.getWidth(); x += step) {
             for (int y = 0; y < img.getHeight(); y += step) {
                 //? if >=1.21.2 {
+                // this gives me an ARGB integer (with lsb in B)
                 int rgb = img.getPixel(x, y);
                 //?} else {
+                // this gives me a BGRA integer (with lsb in A)
                 /*int rgb = img.getPixelRGBA(x, y);*/
                 //?}
 
-                int alpha = (rgb >>> 24) & 0xff;
+                int alpha = (rgb >> 24) & 0xff;
                 if (alpha < 200) {
                     continue;
                 }
 
-                int r = (rgb >>> 16) & 0xff;
-                int g = (rgb >>> 8) & 0xff;
-                int b = rgb & 0xff;
+                int r = (rgb >> 16 - offset) & 0xff;
+                int g = (rgb >> 8) & 0xff;
+                int b = (rgb >> offset) & 0xff;
                 Color.RGBtoHSB(r, g, b, hsb);
 
                 if (hsb[2] < 0.2f || hsb[2] > 0.95f || hsb[1] < 0.2f) {
@@ -182,7 +189,7 @@ public class AlbumArtManager {
         }
 
         if (buckets.isEmpty()) {
-            return 0xff7f7f7f;
+            return 0x007f7f7f;
         }
 
         double[] best = null;
