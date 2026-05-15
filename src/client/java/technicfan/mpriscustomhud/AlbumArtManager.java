@@ -160,8 +160,8 @@ public class AlbumArtManager {
                 // this gives me an ARGB integer (with lsb in B)
                 int rgb = img.getPixel(x, y);
                 //?} else {
-                // this gives me a BGRA integer (with lsb in A)
-                /*int rgb = img.getPixelRGBA(x, y);*/
+                /*// this gives me a ABGR integer (with lsb in R)
+                int rgb = img.getPixelRGBA(x, y);*/
                 //?}
 
                 int alpha = (rgb >> 24) & 0xff;
