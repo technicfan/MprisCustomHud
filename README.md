@@ -18,58 +18,60 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 
 - Not all variables have to be/will be populated by the player/music application
 
+### General Variables
+
+| Name                  |      Type      | Description                                                                                                 |
+| :-------------------- | :------------: | :---------------------------------------------------------------------------------------------------------- |
+| `mpris_busname`       |     String     | busname                                                                                                     |
+| `mpris_track`         |     String     | track name                                                                                                  |
+| `mpris_trackid`       |     String     | the unique mpris track id (mostly for debugging)                                                            |
+| `mpris_album`         |     String     | name of the album the track is from                                                                         |
+| `mpris_repeat`        |     String     | repeat status - "None", "Track" or "Playlist"                                                               |
+| `mpris_artist`        |     String     | name of the first artist coming from mpris                                                                  |
+| `mpris_name`          |     String     | the pretty player name from the `Identity` attribute of `org.mpris.MediaPlayer2`                            |
+| `mpris_lyrics`        |     String     | `xesam:asText`                                                                                              |
+| `mpris_created_at`    |     String     | `xesam:contentCreated`                                                                                      |
+| `mpris_first_played`  |     String     | `xesam:firstUsed`                                                                                           |
+| `mpris_last_played`   |     String     | `xesam:lastUsed`                                                                                            |
+| `mpris_art_url`       |     String     | `xesam:artUrl`                                                                                              |
+| `mpris_url`           |     String     | `xesam:url`                                                                                                 |
+| `mpris_shuffle`       |    Boolean     | wether shuffle is on                                                                                        |
+| `mpris_playing`       |    Boolean     | wether the song is playing or paused/stopped                                                                |
+| `mpris_exists`        |    Boolean     | wether the song is playing or paused/stopped                                                                |
+| `mpris_has_album_art` |    Boolean     | wether the track has an album art/it is loaded                                                              |
+| `mpris_data_age`      |     Number     | the age of the metadata information (track, trackid, album, artist, artists, duration, ...) in milliseconds |
+| `mpris_progress`      |     Number     | progress in milliseconds                                                                                    |
+| `mpris_duration`      |     Number     | duration of the track in milliseconds                                                                       |
+| `mpris_rate`          |     Number     | the rate/speed the music is playing as floating point number                                                |
+| `mpris_volume`        |     Number     | the volume the music is playing at as a floating point number (usually between 0 and 1)                     |
+| `mpris_bpm`           |     Number     | `xesam:audioBPM`                                                                                            |
+| `mpris_disc`          |     Number     | `xesam:discNumber`                                                                                          |
+| `mpris_number`        |     Number     | `xesam:trackNumber`                                                                                         |
+| `mpris_times_played`  |     Number     | `xesam:useCount`                                                                                            |
+| `mpris_auto_rating`   |     Number     | `xesam:autoRating`                                                                                          |
+| `mpris_user_rating`   |     Number     | `xesam:userRating`                                                                                          |
+| `mpris_album_width`   |     Number     | the absolute pixel width of the album art                                                                   |
+| `mpris_album_height`  |     Number     | the absolute pixel height of the album art                                                                  |
+| `mpris_album_color`   |     Number     | the rgb value of the dominant color of the album art                                                        |
+| `mpris_artists`       | List of String | list of artists for the current player                                                                      |
+| `mpris_album_artists` | List of String | `xesam:albumArtist` for the current player                                                                  |
+| `mpris_comments`      | List of String | `xesam:comment` for the current player                                                                      |
+| `mpris_composers`     | List of String | `xesam:composer` for the current player                                                                     |
+| `mpris_genres`        | List of String | `xesam:genre` for the current player                                                                        |
+| `mpris_lyricists`     | List of String | `xesam:lyricist` for the current player                                                                     |
+
 ### CustomHud specific things
 
 - From what I can tell, it is not easily possible to have a list as a field/attribte so here are only the lists for the current player
 - All String variables are either not empty or `null`
+- Lists have the the first four letters of the variable name **after** `mpris_` as the default prefix (for iteration)
+- PlayerInfo objects have all general variables + `mpris_album_art` with the `mpris_` prefix removed as fields
 
-| Name                  |                          Type/Usage                           | Description                                                                                     |
-| :-------------------- | :-----------------------------------------------------------: | :---------------------------------------------------------------------------------------------- |
-| `mpris_player`        | `{mpris_player:<field>}` or `{mpris_player:<player>:<field>}` | exposes the fields of a PlayerInfo Object; player can be the full busname or only the last part |
-| `mpris_players`       |                List of PlayerInfo like Objects                | just a list of currently active PlayerInfo Objects (same `<fields>` as above)                   |
-| `mpris_artists`       |                        List of String                         | list of artists for the current player                                                          |
-| `mpris_album_artists` |                        List of String                         | `xesam:albumArtist` for the current player                                                      |
-| `mpris_comments`      |                        List of String                         | `xesam:comment` for the current player                                                          |
-| `mpris_composers`     |                        List of String                         | `xesam:composer` for the current player                                                         |
-| `mpris_genres`        |                        List of String                         | `xesam:genre` for the current player                                                            |
-| `mpris_lyricists`     |                        List of String                         | `xesam:lyricist` for the current player                                                         |
-
-**Fields for CustomHuds PlayerInfo Objects**:
-
-| Name            |  Type   | Description                                                                                                 |
-| :-------------- | :-----: | :---------------------------------------------------------------------------------------------------------- |
-| `busname`       | String  | busname                                                                                                     |
-| `track`         | String  | track name                                                                                                  |
-| `trackid`       | String  | the unique mpris track id (mostly for debugging)                                                            |
-| `album`         | String  | name of the album the track is from                                                                         |
-| `repeat`        | String  | repeat status - "None", "Track" or "Playlist"                                                               |
-| `artist`        | String  | name of the first artist coming from mpris                                                                  |
-| `name`          | String  | the pretty player name from the `Identity` attribute of `org.mpris.MediaPlayer2`                            |
-| `lyrics`        | String  | `xesam:asText`                                                                                              |
-| `created_at`    | String  | `xesam:contentCreated`                                                                                      |
-| `first_played`  | String  | `xesam:firstUsed`                                                                                           |
-| `last_played`   | String  | `xesam:lastUsed`                                                                                            |
-| `art_url`       | String  | `xesam:artUrl`                                                                                              |
-| `url`           | String  | `xesam:url`                                                                                                 |
-| `shuffle`       | Boolean | wether shuffle is on                                                                                        |
-| `playing`       | Boolean | wether the song is playing or paused/stopped                                                                |
-| `exists`        | Boolean | wether the song is playing or paused/stopped                                                                |
-| `has_album_art` | Boolean | wether the track has an album art/it is loaded                                                              |
-| `data_age`      | Number  | the age of the metadata information (track, trackid, album, artist, artists, duration, ...) in milliseconds |
-| `progress`      | Number  | progress in milliseconds                                                                                    |
-| `duration`      | Number  | duration of the track in milliseconds                                                                       |
-| `rate`          | Number  | the rate/speed the music is playing as floating point number                                                |
-| `volume`        | Number  | the volume the music is playing at as a floating point number (usually between 0 and 1)                     |
-| `bpm`           | Number  | `xesam:audioBPM`                                                                                            |
-| `disc`          | Number  | `xesam:discNumber`                                                                                          |
-| `number`        | Number  | `xesam:trackNumber`                                                                                         |
-| `times_played`  | Number  | `xesam:useCount`                                                                                            |
-| `auto_rating`   | Number  | `xesam:autoRating`                                                                                          |
-| `user_rating`   | Number  | `xesam:userRating`                                                                                          |
-| `album_width`   | Number  | the absolute pixel width of the album art                                                                   |
-| `album_height`  | Number  | the absolute pixel height of the album art                                                                  |
-| `album_color`   | Number  | the rgb value of the dominant color of the album art                                                        |
-| `album_art`     |  Icon   | draws the album art image to the screen                                                                     |
+| Name              |                          Type/Usage                           | Description                                                                                     |
+| :---------------- | :-----------------------------------------------------------: | :---------------------------------------------------------------------------------------------- |
+| `mpris_player`    | `{mpris_player:<field>}` or `{mpris_player:<player>:<field>}` | exposes the fields of a PlayerInfo Object; player can be the full busname or only the last part |
+| `mpris_players`   |                List of PlayerInfo like Objects                | just a list of currently active PlayerInfo Objects (same `<fields>` as above)                   |
+| `mpris_album_art` |                             Icon                              | draws the album art image of the current player to the screen                                   |
 
 See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata) for details on the `xesam:<name>` and `mpris:<name>` variables.
 
@@ -87,7 +89,7 @@ See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https:
 
 | Name              |                                     Arguments                                     | Effect                                                                                                                                                                                                             |
 | :---------------- | :-------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getPlayerInfo`   |                                   `String name`                                   | returns the PlayerInfo object with the bus name `org.mpris.MediaPlayer2.<name>` or `null`                                                                                                                          |
+| `mpris_player`    |                                   `String name`                                   | returns the PlayerInfo object with the bus name `org.mpris.MediaPlayer2.<name>` or `null`                                                                                                                          |
 | `mpris_album_art` | `String name` or `AlbumArt albumArt`, `int x`, `int y`, `int width`, `int height` | draws the album art image; if the track has no album art, it draws a fallback; if width or height is 0 it will retain the original aspect ratio; if both are 0, it will use the pixel dimensions (way too big lol) |
 
 #### Objects
