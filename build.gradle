@@ -16,17 +16,6 @@ repositories {
 	}
 }
 
-loom {
-	splitEnvironmentSourceSets()
-
-	mods {
-		"mpriscustomhud" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
-		}
-	}
-}
-
 dependencies {
 	minecraft "com.mojang:minecraft:${sc.current.version}"
 

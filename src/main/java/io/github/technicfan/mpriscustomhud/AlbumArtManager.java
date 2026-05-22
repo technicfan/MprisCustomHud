@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud;
+package io.github.technicfan.mpriscustomhud;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
@@ -27,8 +27,8 @@ import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
-import technicfan.mpriscustomhud.PlayerInfo.Metadata;
+import io.github.technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
+import io.github.technicfan.mpriscustomhud.PlayerInfo.Metadata;
 
 public class AlbumArtManager {
     private static Minecraft minecraft;

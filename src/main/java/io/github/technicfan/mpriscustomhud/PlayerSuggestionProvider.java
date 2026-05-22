@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud;
+package io.github.technicfan.mpriscustomhud;
 
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;

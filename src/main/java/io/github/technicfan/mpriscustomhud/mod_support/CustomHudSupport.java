@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud.mod_support;
+package io.github.technicfan.mpriscustomhud.mod_support;
 
 import java.util.UUID;
 import java.util.function.Function;
@@ -20,10 +20,10 @@ import net.minecraft.client.renderer.RenderPipelines;
 //?}
 import net.minecraft.resources.ResourceLocation;
 
-import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
+import io.github.technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 //?}
-import technicfan.mpriscustomhud.MprisCustomHud;
-import technicfan.mpriscustomhud.PlayerInfo;
+import io.github.technicfan.mpriscustomhud.MprisCustomHud;
+import io.github.technicfan.mpriscustomhud.PlayerInfo;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class CustomHudSupport {

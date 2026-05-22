@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud.mod_support;
+package io.github.technicfan.mpriscustomhud.mod_support;
 
 //? if >=1.21.1 {
 import net.minecraft.client.DeltaTracker;
@@ -28,8 +28,8 @@ import io.github.ngspace.hudder.data_management.api.VariableTypes;
 //?}
 import java.util.function.Supplier;
 
-import technicfan.mpriscustomhud.MprisCustomHud;
-import technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
+import io.github.technicfan.mpriscustomhud.MprisCustomHud;
+import io.github.technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 //?}
 
 public class HudderSupport {

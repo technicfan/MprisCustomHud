@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud;
+package io.github.technicfan.mpriscustomhud;
 
 import java.util.List;
 import java.math.BigInteger;

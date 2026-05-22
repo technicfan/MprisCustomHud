@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud.mod_support;
+package io.github.technicfan.mpriscustomhud.mod_support;
 
 import java.util.HashMap;
 import java.util.List;
@@ -6,8 +6,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import net.fabricmc.loader.api.FabricLoader;
-import technicfan.mpriscustomhud.MprisCustomHud;
-import technicfan.mpriscustomhud.PlayerInfo;
+import io.github.technicfan.mpriscustomhud.MprisCustomHud;
+import io.github.technicfan.mpriscustomhud.PlayerInfo;
 
 public class ModSupport {
     protected static HashMap<String, Function<PlayerInfo, String>> strings = new HashMap<>();

@@ -1,10 +1,10 @@
-package technicfan.mpriscustomhud;
+package io.github.technicfan.mpriscustomhud;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
-import technicfan.mpriscustomhud.mod_support.ModSupport;
+import io.github.technicfan.mpriscustomhud.mod_support.ModSupport;
 
 import java.io.File;
 import java.io.FileReader;

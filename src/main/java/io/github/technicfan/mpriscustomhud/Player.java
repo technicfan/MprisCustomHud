@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud;
+package io.github.technicfan.mpriscustomhud;
 
 import org.freedesktop.dbus.annotations.DBusInterfaceName;
 import org.freedesktop.dbus.exceptions.DBusException;

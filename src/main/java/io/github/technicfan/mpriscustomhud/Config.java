@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud;
+package io.github.technicfan.mpriscustomhud;
 
 public class Config {
     public final String preferred;

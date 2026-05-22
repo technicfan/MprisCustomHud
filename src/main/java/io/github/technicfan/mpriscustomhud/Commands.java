@@ -1,4 +1,4 @@
-package technicfan.mpriscustomhud;
+package io.github.technicfan.mpriscustomhud;
 
 import java.util.concurrent.CompletableFuture;
 import com.mojang.blaze3d.platform.InputConstants;
