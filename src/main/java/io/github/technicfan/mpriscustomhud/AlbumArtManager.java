@@ -81,7 +81,7 @@ public class AlbumArtManager {
                         image));
                     });
                     toRemove.remove(id);
-                    if (!cached) {
+                    if (!cached && !player.metadata.art_url.startsWith("file://")) {
                         addToCache(cacheName, data);
                     }
                     return player.update(new AlbumArt(id, dominantColor(image), image.getWidth(), image.getHeight()));
