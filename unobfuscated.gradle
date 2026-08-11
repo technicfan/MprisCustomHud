@@ -38,6 +38,9 @@ stonecutter {
        replace "ClientCommandManager", "ClientCommands"
        replace "GuiGraphics", "GuiGraphicsExtractor"
     }
+    replacements.string(current.parsed.matches(">26.2")) {
+      replace "KEYSYM", "KEYBOARD"
+    }
 }
 
 processResources {
