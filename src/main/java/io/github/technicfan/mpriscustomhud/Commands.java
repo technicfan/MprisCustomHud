@@ -41,8 +41,6 @@ public class Commands {
                                 .executes(Commands::cyclePlayers))
                         .then(ClientCommandManager.literal("refresh")
                                 .executes(Commands::refresh))
-                        .then(ClientCommandManager.literal("clearCache")
-                                .executes(Commands::clearCache))
                         .then(ClientCommandManager.literal("playpause")
                                 .executes(Commands::playPausePlayer))
                         .then(ClientCommandManager.literal("play")
@@ -109,13 +107,6 @@ public class Commands {
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
             MprisCustomHud.close();
         });
-    }
-
-    private static int clearCache(CommandContext<FabricClientCommandSource> commandContext) {
-        CompletableFuture.runAsync(() -> {
-            AlbumArtManager.clear();;
-        });
-        return 1;
     }
 
     private static int refresh(CommandContext<FabricClientCommandSource> commandContext) {
