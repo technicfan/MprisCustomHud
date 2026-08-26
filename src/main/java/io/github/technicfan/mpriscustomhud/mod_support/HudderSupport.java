@@ -11,6 +11,7 @@ import net.minecraft.resources.ResourceLocation;
 /*
 import dev.ngspace.hudder.api.functionsandconsumers.FunctionAndConsumerAPI;
 import dev.ngspace.hudder.api.variableregistry.DataVariableRegistry;
+import dev.ngspace.hudder.api.variableregistry.DataVariable;
 import dev.ngspace.hudder.api.variableregistry.VariableTypes;
 import dev.ngspace.hudder.main.HudderRenderer;
 import dev.ngspace.hudder.uielements.AUIElement;
@@ -21,12 +22,12 @@ import io.github.ngspace.hudder.uielements.AUIElement;
 import io.github.ngspace.hudder.compilers.utils.functionandconsumerapi.FunctionAndConsumerAPI;
 //? if >=1.21.9 {
 import io.github.ngspace.hudder.data_management.api.DataVariableRegistry;
+import io.github.ngspace.hudder.data_management.api.DataVariable;
 import io.github.ngspace.hudder.data_management.api.VariableTypes;
 //?} else {
 /*import io.github.ngspace.hudder.data_management.ObjectDataAPI;*/
 //?}
 //?}
-import java.util.function.Supplier;
 
 import io.github.technicfan.mpriscustomhud.MprisCustomHud;
 import io.github.technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
@@ -34,49 +35,67 @@ import io.github.technicfan.mpriscustomhud.PlayerInfo.AlbumArt;
 
 public class HudderSupport {
     //? if >=1.21.1 {
-    //? if >=1.21.9 {
+    //? if >=1.21.9 && <26.2 {
     private static VariableTypes.Type<?>[] types = new VariableTypes.Type<?>[]{
         VariableTypes.STRING, VariableTypes.BOOLEAN,
         VariableTypes.NUMBER, VariableTypes.OBJECT
     };
+    //?} else if <1.21.9 {
+    /*@FunctionalInterface
+    private interface DataVariable<T> {
+        public T get(String k);
+    }*/
     //?}
 
-    private static void registerVariable(Supplier<?> supplier, int type, String name) {
-        //? if >=1.21.9 {
-        DataVariableRegistry.registerVariable(k -> supplier.get(), types[type], name);
+
+    /*? if >26.1 {*//*@SuppressWarnings("unchecked")*//*?}*/
+    private static <T> void registerVariable(DataVariable<T> variable, int type, String name) {
+        //? if >26.1 {
+        /*switch (type) {
+            case 0: DataVariableRegistry.registerStringVariable((DataVariable<String>) variable, name); break;
+            case 1: DataVariableRegistry.registerBooleanVariable((DataVariable<Boolean>) variable, name); break;
+            case 2: DataVariableRegistry.registerNumberVariable((DataVariable<Number>) variable, name); break;
+            case 3: DataVariableRegistry.registerObjectVariable((DataVariable<Object>) variable, name);
+        }*/
+        //?} else if >=1.21.9 {
+        DataVariableRegistry.registerVariable(variable, types[type], name);
         //?} else {
-        /*ObjectDataAPI.addObjectGetter(k -> k.equals(name) ? supplier.get() : null);*/
+        /*ObjectDataAPI.addObjectGetter(k -> k.equals(name) ? variable.get(k) : null);*/
         //?}
     }
     //?}
 
     public static void register() {
         //? if >=1.21.1 {
-        registerVariable(() -> true, 1, "has_mpris");
-        registerVariable(() -> MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? null : MprisCustomHud.getCurrentPlayerInfo(), 3, "mpris_player");
-        registerVariable(() -> MprisCustomHud.getPlayers(), 3, "mpris_players");
+        registerVariable(k -> true, 1, "has_mpris");
+        registerVariable(k -> MprisCustomHud.getCurrentPlayerInfo().isEmpty() ? null : MprisCustomHud.getCurrentPlayerInfo(), 3, "mpris_player");
+        registerVariable(k -> MprisCustomHud.getPlayers(), 3, "mpris_players");
 
         ModSupport.strings.forEach((v, f) -> {
-            registerVariable(() -> ModSupport.nullIfEmpty(f).apply(MprisCustomHud.getCurrentPlayerInfo()), 0, "mpris_" + v);
+            registerVariable(k -> ModSupport.nullIfEmpty(f).apply(MprisCustomHud.getCurrentPlayerInfo()), 0, "mpris_" + v);
         });
 
         ModSupport.bools.forEach((v, f) -> {
-            registerVariable(() -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 1, "mpris_" + v);
+            registerVariable(k -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 1, "mpris_" + v);
         });
 
         ModSupport.numbers.forEach((v, f) -> {
-            registerVariable(() -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 2, "mpris_" + v);
+            registerVariable(k -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 2, "mpris_" + v);
         });
 
         ModSupport.times.forEach((v, f) -> {
-            registerVariable(() -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 2, "mpris_" + v);
+            registerVariable(k -> f.apply(MprisCustomHud.getCurrentPlayerInfo()), 2, "mpris_" + v);
         });
 
         ModSupport.lists.forEach((v, f) -> {
-            registerVariable(f, 3, v);
+            registerVariable(k -> f.get(), 3, v);
         });
 
-        FunctionAndConsumerAPI.getInstance().registerConsumer((ui, c, args) -> {
+        FunctionAndConsumerAPI.getInstance()
+            //? if <26.2 {
+            .registerConsumer((ui, c, args) -> {
+            //?} else
+            /*.registerPositionedConsumer((ui, c, pos, conf, args) -> {*/
             AlbumArt albumArt;
             Object id = args[0].asType(Object.class);
             if (id instanceof AlbumArt art) {
@@ -84,12 +103,21 @@ public class HudderSupport {
             } else if (id instanceof String name) {
                 albumArt = MprisCustomHud.getPlayerInfoOrEmpty(name).metadata.album_art;
             } else {
+                //? if <26.2 {
                 throw new IllegalArgumentException("First argument has to be either String or AlbumArt");
+                //?} else
+                /*throw new dev.ngspace.hudder.exceptions.ExecutionException("First argument has to be either String or AlbumArt", pos);*/
             }
             ui.addUIElement(new AlbumArtElement(albumArt, args[1].asInt(), args[2].asInt(), args[3].asInt(), args[4].asInt()));
         }, "mpris_album_art");
 
-        FunctionAndConsumerAPI.getInstance().registerFunction((ui, c, args) -> MprisCustomHud.getPlayerInfo(args[0].asString()), "mpris_player");
+        FunctionAndConsumerAPI.getInstance()
+            //? if <26.2 {
+            .registerFunction((ui, c, args) -> { 
+            //?} else
+            /*.registerPositionedFunction((ui, c, pos, conf, args) -> {*/
+            return MprisCustomHud.getPlayerInfo(args[0].asString());
+        }, "mpris_player");
 
         MprisCustomHud.log("Registered Hudder variables and functions");
         //?}
