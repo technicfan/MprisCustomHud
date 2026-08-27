@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.freedesktop.dbus.DBusPath;
 import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.interfaces.Properties;
 import org.freedesktop.dbus.interfaces.Properties.PropertiesChanged;
@@ -345,24 +346,30 @@ public class PlayerInfo {
         }
 
         private static String getString(Object obj) {
-            if (obj instanceof String) {
-                return (String) obj;
+            if (obj == null) return "";
+            if (obj instanceof String string) {
+                return string;
+            // mpris:trackid should be a DBusPath
+            // it's right there in the docs lol
+            } else if (obj instanceof DBusPath path) {
+                return path.getPath();
             } else {
                 return "";
             }
         }
 
         private static Number getNumber(Object obj) {
-            if (obj instanceof Number) {
-                return (Number) obj;
+            if (obj == null) return 0;
+            if (obj instanceof Number number) {
+                return number;
             } else {
                 return 0;
             }
         }
 
         private static List<String> getList(Object obj) {
-            if (obj instanceof List) {
-                List<?> tempList = (List<?>) obj;
+            if (obj == null) return List.of();
+            if (obj instanceof List<?> tempList) {
                 String[] list = new String[tempList.size()];
                 for (int i = 0; i < tempList.size(); i++) {
                     list[i] = (String) tempList.get(i);

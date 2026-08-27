@@ -287,13 +287,15 @@ public class MprisCustomHud implements ClientModInitializer {
                 // check if signal came from the current player
                 try {
                     if (dbus.GetNameOwner(busName).equals(signal.getSource())) {
-                        String art_url = players.get(busName).metadata.art_url;
-                        PlayerInfo player = players.get(busName).propertiesChanged(signal);
+                        PlayerInfo player = players.get(busName);
+                        String art_url = player.metadata.art_url;
+                        String trackid = player.metadata.trackid;
+                        player = player.propertiesChanged(signal);
                         players.put(busName, player);
                         if (busName.equals(currentPlayerInfo.busname)) {
                             currentPlayerInfo = player;
                         }
-                        if (!player.metadata.art_url.equals(art_url)) {
+                        if (!player.metadata.trackid.equals(trackid) || !player.metadata.art_url.equals(art_url)) {
                             player = AlbumArtManager.loadAlbumArt(player);
                             if (players.containsKey(busName)) {
                                 if (players.put(busName, player) == currentPlayerInfo) {
