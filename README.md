@@ -37,7 +37,7 @@ It is heavily inspired by [Hudify](https://modrinth.com/mod/hudify), so thank yo
 | `mpris_url`           |     String     | `xesam:url`                                                                                                 |
 | `mpris_shuffle`       |    Boolean     | wether shuffle is on                                                                                        |
 | `mpris_playing`       |    Boolean     | wether the song is playing or paused/stopped                                                                |
-| `mpris_exists`        |    Boolean     | wether the song is playing or paused/stopped                                                                |
+| `mpris_exists`        |    Boolean     | wether the current track is real or a placeholder                                                           |
 | `mpris_has_album_art` |    Boolean     | wether the track has an album art/it is loaded                                                              |
 | `mpris_data_age`      |     Number     | the age of the metadata information (track, trackid, album, artist, artists, duration, ...) in milliseconds |
 | `mpris_progress`      |     Number     | progress in milliseconds                                                                                    |
@@ -105,6 +105,7 @@ See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https:
 - `double volume` - the volume the music is playing at (usually between 0 and 1)
 - `Metadata metadata` - metadata
 - `long progress()` - returns the current progress (in ms)
+- `boolean isEmpty()` - wether the current track is real or a placeholder
 
 **Metadata**:
 
@@ -134,7 +135,7 @@ See [https://www.freedesktop.org/wiki/Specifications/mpris-spec/metadata](https:
 - `AlbumArt album_art` - information on the album art
 - `long data_age()` - returns the age of the object (in ms)
 
-**AlbumArt**
+**AlbumArt**:
 
 - `int width` - width in pixels
 - `int height` - height in pixels
